@@ -60,7 +60,6 @@ def get_pre_filled_answers(address: str) -> dict:
         "primary_heating_fuel": _infer_heating_fuel(data.get("heating_type")),
         "ev_owner_or_planning": None,
         "planning_roof_replacement": None,
-        "primary_goal": None,
         "square_footage": data.get("square_footage"),
         "num_occupants": _estimate_occupants(data.get("bedrooms")),
         "planned_electric_additions": None,

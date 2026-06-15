@@ -1,0 +1,52 @@
+[
+  {
+    "id": "sequence-air-sealing-atlanta",
+    "upgrade_key": "air_sealing",
+    "depends_on": [],
+    "tier": 1,
+    "rationale": "Air sealing closes bypasses and leakage points first so that later insulation and HVAC sizing work is not undermined by uncontrolled air leakage.",
+    "source": "ENERGY STAR Home Sealing guidance",
+    "source_url": "https://www.energystar.gov/saveathome/seal_insulate",
+    "citation_snippet": "Seal air leaks before adding insulation so that the insulation performs as expected and moisture is managed correctly."
+  },
+  {
+    "id": "sequence-attic-insulation-atlanta",
+    "upgrade_key": "attic_insulation",
+    "depends_on": ["air_sealing"],
+    "tier": 1,
+    "rationale": "Insulation should be installed after air sealing so leaks are not trapped behind new insulation, where they are harder to find and fix.",
+    "source": "ENERGY STAR Home Sealing guidance",
+    "source_url": "https://www.energystar.gov/saveathome/seal_insulate",
+    "citation_snippet": "Air sealing and insulation work best together, with sealing performed first so insulation is not installed over hidden leaks."
+  },
+  {
+    "id": "sequence-heat-pump-atlanta",
+    "upgrade_key": "heat_pump",
+    "depends_on": ["air_sealing", "attic_insulation"],
+    "tier": 2,
+    "rationale": "Reducing the building's heating and cooling load through envelope improvements first allows the heat pump to be sized correctly, avoiding an oversized and less efficient system.",
+    "source": "DOE Building America Solution Center",
+    "source_url": "https://www.energy.gov/energysaver/heat-pump-systems",
+    "citation_snippet": "Properly sizing a heat pump depends on the home's heating and cooling loads, which are reduced by air sealing and insulation improvements."
+  },
+  {
+    "id": "sequence-heat-pump-water-heater-atlanta",
+    "upgrade_key": "heat_pump_water_heater",
+    "depends_on": [],
+    "tier": 2,
+    "rationale": "A heat pump water heater serves the domestic hot water load and does not depend on envelope work or space-conditioning equipment, so it can be installed independently.",
+    "source": "ENERGY STAR Heat Pump Water Heaters",
+    "source_url": "https://www.energystar.gov/products/water_heaters/heat_pump_water_heaters",
+    "citation_snippet": "Heat pump water heaters can be installed as a standalone upgrade independent of other envelope or HVAC improvements."
+  },
+  {
+    "id": "sequence-solar-atlanta",
+    "upgrade_key": "solar",
+    "depends_on": ["heat_pump", "heat_pump_water_heater"],
+    "tier": 3,
+    "rationale": "Sizing a solar PV system after electrification upgrades ensures the array is sized to the home's new, often higher, electric load rather than its pre-electrification usage.",
+    "source": "DOE Solar Energy Technologies Office",
+    "source_url": "https://www.energy.gov/eere/solar/homeowners-guide-going-solar",
+    "citation_snippet": "Homeowners should consider planned electrification, such as heat pumps, before finalizing the size of a solar PV system."
+  }
+]

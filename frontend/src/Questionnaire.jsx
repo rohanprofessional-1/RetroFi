@@ -16,7 +16,6 @@ const FIELDS = [
   { key: 'ev_owner_or_planning', label: 'EV ownership or plans', type: 'choice', required: false, section: 'Future Plans', options: ['Yes, I own one', 'Planning within 3 years', 'No'] },
   { key: 'planning_roof_replacement', label: 'Roof replacement in next 5 years', type: 'choice', required: false, section: 'Future Plans', options: ['Yes', 'No', 'Not sure'] },
   { key: 'planned_electric_additions', label: 'Major electric additions planned', type: 'choice', required: false, section: 'Future Plans', options: ['Yes', 'No'] },
-  { key: 'primary_goal', label: 'Primary goal', type: 'choice', required: false, section: 'Future Plans', options: ['Lower bills', 'Backup power during outages', 'Reduce carbon footprint', 'Increase home value', 'Other'] },
 ];
 const SECTION_ORDER = ['Monthly Costs', 'Your Home', 'Energy & Appliances', 'Future Plans'];
 

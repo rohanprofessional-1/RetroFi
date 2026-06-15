@@ -13,7 +13,6 @@ const FIELD_LABELS = {
   primary_heating_fuel: 'Primary Heating Fuel',
   ev_owner_or_planning: 'EV Ownership / Plans',
   planning_roof_replacement: 'Roof Replacement Plans',
-  primary_goal: 'Primary Goal',
   square_footage: 'Square Footage',
   num_occupants: 'Estimated Occupants',
   planned_electric_additions: 'Planned Electric Additions',
