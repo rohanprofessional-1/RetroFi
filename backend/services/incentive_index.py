@@ -1,17 +1,57 @@
 import json
 import re
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+from urllib.request import Request, urlopen
 
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DEBUG_LOG_PATH = Path("/Users/rohannair/Desktop/Shenanigans/retrofi-atl/.cursor/debug-7b06a5.log")
+DEBUG_SESSION_ID = "7b06a5"
+DEBUG_LOG_ENDPOINT = "http://127.0.0.1:7596/ingest/3f6d0d4e-1307-4f80-a381-cf3930c45abc"
+
+
+# region agent log
+def _debug_log(run_id: str, hypothesis_id: str, location: str, message: str, data: dict):
+    payload = {
+        "sessionId": DEBUG_SESSION_ID,
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with DEBUG_LOG_PATH.open("a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(payload) + "\n")
+    except OSError:
+        try:
+            request = Request(
+                DEBUG_LOG_ENDPOINT,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Debug-Session-Id": DEBUG_SESSION_ID,
+                },
+                method="POST",
+            )
+            urlopen(request, timeout=2).close()
+        except OSError:
+            pass
+# endregion
 
 UPGRADE_ALIASES = {
     "heat_pump": ["heat pump", "hvac", "heating", "cooling", "air source"],
     "attic_insulation": ["attic insulation", "insulation", "r-49", "envelope"],
     "air_sealing": ["air sealing", "draft", "leak", "weatherization", "envelope"],
     "heat_pump_water_heater": ["heat pump water heater", "water heater", "hot water"],
+    "solar": ["solar", "solar pv", "photovoltaic", "clean energy"],
+    "battery_storage": ["battery", "battery storage"],
+    "electrical_panel": ["electric panel", "electrical panel", "panelboard"],
 }
 
 
@@ -79,7 +119,16 @@ class IncentiveIndex:
                 vector_store = ChromaVectorStore()
                 if vector_store.count() > 0:
                     self.vector_store = vector_store
-            except RuntimeError:
+            except Exception as exc:
+                # region agent log
+                _debug_log(
+                    "post-fix",
+                    "H6",
+                    "backend/services/incentive_index.py:103",
+                    "Vector store unavailable; falling back to seed incentives",
+                    {"error_type": type(exc).__name__, "error": str(exc)[:500]},
+                )
+                # endregion
                 self.vector_store = None
 
     def infer_upgrade_categories(self, query: Any) -> List[str]:
