@@ -4,27 +4,40 @@ import anthropic
 
 _client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
-# Ordered list of questionnaire fields with their priority tier.
-# The loop works through these in order, skipping any that are already
-# filled by RentCast, and stops after 10 questions are asked.
+# Each entry: (field_key, priority, question_text, input_type, options_or_None)
+# input_type: "number" — free numeric entry; "choice" — tap-to-select buttons
 PRIORITY_FIELDS = [
     # Priority 1 — Essential (always asked; RentCast cannot source these)
-    ("monthly_electricity_bill", "P1", "What is your average monthly electricity bill?"),
-    ("monthly_gas_bill", "P1", "What is your average monthly gas bill?"),
-    ("home_ownership_status", "P1", "Do you own this home, or are you renting?"),
-    ("appliances_fuel", "P1", "Is your water heating and cooking primarily electric or gas?"),
-    ("roof_type", "P1", "What type of roof does your home have (e.g. asphalt shingle, metal, tile, flat)?"),
+    ("monthly_electricity_bill", "P1", "What is your average monthly electricity bill?",
+     "number", None),
+    ("monthly_gas_bill", "P1", "What is your average monthly gas bill?",
+     "number", None),
+    ("home_ownership_status", "P1", "Do you own this home, or are you renting?",
+     "choice", ["Own", "Rent / Lease"]),
+    ("appliances_fuel", "P1", "Is your water heating and cooking primarily electric or gas?",
+     "choice", ["Electric", "Gas", "Mixed (both)"]),
+    ("roof_type", "P1", "What type of roof does your home have?",
+     "choice", ["Asphalt Shingle", "Metal", "Tile", "Flat / TPO", "Other"]),
     # Priority 2 — High-Value (skip if RentCast pre-filled)
-    ("home_type", "P2", "What type of home do you live in (single family, condo, townhouse)?"),
-    ("year_built", "P2", "Approximately what year was your home built?"),
-    ("primary_heating_fuel", "P2", "What is your primary heating fuel (gas, electric, oil, propane)?"),
-    ("ev_owner_or_planning", "P2", "Do you currently own an EV, or plan to buy one in the next 3 years?"),
-    ("planning_roof_replacement", "P2", "Are you planning a roof replacement in the next 5 years?"),
-    ("primary_goal", "P2", "What is your primary goal — lower bills, backup power, reduce carbon, or increase home value?"),
+    ("home_type", "P2", "What type of home do you live in?",
+     "choice", ["Single Family", "Townhouse", "Condo / Apartment", "Other"]),
+    ("year_built", "P2", "Approximately when was your home built?",
+     "choice", ["Before 1980", "1980 – 2000", "2001 – 2015", "After 2015"]),
+    ("primary_heating_fuel", "P2", "What is your primary heating fuel?",
+     "choice", ["Gas", "Electric", "Oil", "Propane"]),
+    ("ev_owner_or_planning", "P2", "Do you own an EV, or plan to buy one in the next 3 years?",
+     "choice", ["Yes, I own one", "Planning within 3 years", "No"]),
+    ("planning_roof_replacement", "P2", "Are you planning a roof replacement in the next 5 years?",
+     "choice", ["Yes", "No", "Not sure"]),
+    ("primary_goal", "P2", "What is your primary goal?",
+     "choice", ["Lower bills", "Backup power during outages", "Reduce carbon footprint", "Increase home value"]),
     # Priority 3 — Nice to Have (skip if RentCast pre-filled)
-    ("square_footage", "P3", "What is the approximate square footage of your home?"),
-    ("num_occupants", "P3", "How many people live in your home?"),
-    ("planned_electric_additions", "P3", "Are you planning any major electric additions such as a pool, hot tub, ADU, or battery backup?"),
+    ("square_footage", "P3", "What is the approximate square footage of your home?",
+     "choice", ["Under 1,000 sq ft", "1,000 – 1,500 sq ft", "1,500 – 2,500 sq ft", "Over 2,500 sq ft"]),
+    ("num_occupants", "P3", "How many people live in your home?",
+     "choice", ["1", "2", "3", "4", "5 or more"]),
+    ("planned_electric_additions", "P3", "Are you planning major electric additions (pool, hot tub, ADU, battery backup)?",
+     "choice", ["Yes", "No"]),
 ]
 
 MAX_QUESTIONS = 10
@@ -40,8 +53,7 @@ def get_next_question(answers: dict) -> dict:
     or:
       {"complete": True}
 
-    The decision of *which* question to ask is delegated to Claude so that
-    the phrasing can be contextualised by what the user has already told us.
+    Questions are returned deterministically from the static PRIORITY_FIELDS list.
     """
     questions_asked = answers.get("_questions_asked", 0)
     if questions_asked >= MAX_QUESTIONS:
@@ -49,49 +61,19 @@ def get_next_question(answers: dict) -> dict:
 
     # Find the next unfilled field in priority order
     missing = [
-        (field, priority, hint)
-        for field, priority, hint in PRIORITY_FIELDS
+        (field, priority, hint, input_type, options)
+        for field, priority, hint, input_type, options in PRIORITY_FIELDS
         if answers.get(field) is None
     ]
 
     if not missing:
         return {"complete": True}
 
-    next_field, next_priority, hint = missing[0]
-
-    # Build a compact profile of what we know (exclude private meta keys)
-    known = {
-        k: v for k, v in answers.items()
-        if not k.startswith("_") and v is not None
-    }
-
-    prompt = f"""You are a friendly home energy advisor helping a homeowner in Atlanta, GA get a personalised retrofit plan.
-
-Homeowner profile so far:
-{json.dumps(known, indent=2) if known else "(No information yet)"}
-
-The next field we need to ask about is: "{next_field}" (hint: {hint})
-
-Write a single, warm, conversational question to collect this information.
-- 1–2 sentences max.
-- Do not number the question or include any preamble.
-- Return ONLY valid JSON in this exact shape, with no markdown fences:
-{{"question": "<your question here>", "field_key": "{next_field}"}}"""
-
-    try:
-        response = _client.messages.create(
-            model="claude-sonnet-4-5",
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
-        result = json.loads(raw)
-        # Guard: ensure field_key is present and correct
-        result["field_key"] = next_field
-        return result
-    except Exception:
-        # Fallback to the static hint if Claude is unavailable
-        return {"question": hint, "field_key": next_field}
+    next_field, next_priority, hint, input_type, options = missing[0]
+    result = {"question": hint, "field_key": next_field, "input_type": input_type}
+    if options is not None:
+        result["options"] = options
+    return result
 
 
 def generate_retrofit_plan(address: str, answers: dict) -> dict:
