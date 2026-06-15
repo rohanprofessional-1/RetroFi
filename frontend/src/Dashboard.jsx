@@ -48,7 +48,7 @@ function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
               <h3>Plain-English Recommendation</h3>
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                {result.summary_source === 'anthropic' ? `AI summary: ${result.model}` : 'Draft summary'}
+                {['anthropic', 'local_llm'].includes(result.summary_source) ? `AI summary: ${result.model}` : 'Draft summary'}
               </span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: 1.7, marginTop: '1rem', whiteSpace: 'pre-wrap' }}>
