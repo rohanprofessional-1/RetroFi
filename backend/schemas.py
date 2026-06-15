@@ -170,6 +170,7 @@ class RetrofitSummaryResponse(BaseModel):
     llm_summary: str
     summary_source: str
     model: Optional[str] = None
+    solar_data: Optional[dict] = None
 
 
 class SequenceRetrofitRequest(BaseModel):
@@ -180,3 +181,29 @@ class SequenceRetrofitRequest(BaseModel):
 class SequenceRetrofitResponse(BaseModel):
     ranked_options: List[RetrofitOptionCalculation]
     sequencing_focus: str
+
+
+class SolarActionStepsRequest(BaseModel):
+    address: str
+    solar_data: dict
+    matched_incentives: List[dict] = Field(default_factory=list)
+
+
+class NearbyInstaller(BaseModel):
+    name: str
+    rating: float
+    ratings_count: int
+    vicinity: str
+    place_id: str
+
+
+class SolarStep(BaseModel):
+    title: str
+    summary: str
+    bullets: List[str]
+
+
+class SolarActionStepsResponse(BaseModel):
+    steps: List[SolarStep]
+    nearby_installers: List[NearbyInstaller]
+    source: str

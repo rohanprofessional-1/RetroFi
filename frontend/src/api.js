@@ -68,6 +68,25 @@ export async function sequenceRetrofit(rankedOptions, focus) {
   return response.json();
 }
 
+export async function fetchSolarActionSteps(address, solarData, matchedIncentives) {
+  const response = await fetch(`${API_BASE_URL}/solar-action-steps`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      address,
+      solar_data: solarData,
+      matched_incentives: matchedIncentives,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function getGoogleMapsConfig() {
   const response = await fetch(`${API_BASE_URL}/config/google-maps`);
 
