@@ -1,0 +1,108 @@
+[
+  {
+    "id": "federal-25c-heat-pump",
+    "name": "Energy Efficient Home Improvement Credit - Heat Pumps",
+    "source": "Internal mock based on IRS 25C guidance",
+    "source_url": "https://www.irs.gov/credits-deductions/energy-efficient-home-improvement-credit",
+    "incentive_type": "Tax Credit",
+    "eligible_upgrades": ["heat_pump"],
+    "geographic_scope": ["federal", "georgia", "atlanta"],
+    "utility": null,
+    "amount_rule": {
+      "type": "percentage_cap",
+      "percent": 0.3,
+      "cap": 2000
+    },
+    "stackable": true,
+    "eligibility": "Owner-occupied existing homes may qualify for 30% of qualified heat pump costs up to the annual heat pump cap.",
+    "citation_snippet": "The federal 25C credit can cover 30% of qualifying heat pump costs up to a $2,000 annual limit."
+  },
+  {
+    "id": "federal-25c-envelope",
+    "name": "Energy Efficient Home Improvement Credit - Insulation and Air Sealing",
+    "source": "Internal mock based on IRS 25C guidance",
+    "source_url": "https://www.irs.gov/credits-deductions/energy-efficient-home-improvement-credit",
+    "incentive_type": "Tax Credit",
+    "eligible_upgrades": ["attic_insulation", "air_sealing"],
+    "geographic_scope": ["federal", "georgia", "atlanta"],
+    "utility": null,
+    "amount_rule": {
+      "type": "percentage_cap",
+      "percent": 0.3,
+      "cap": 1200
+    },
+    "stackable": true,
+    "eligibility": "Existing homes may qualify for 30% of qualified insulation and air sealing material costs, subject to the annual envelope cap.",
+    "citation_snippet": "The federal 25C credit can cover 30% of qualifying building envelope improvements, including insulation and air sealing, up to the annual cap."
+  },
+  {
+    "id": "federal-25c-heat-pump-water-heater",
+    "name": "Energy Efficient Home Improvement Credit - Heat Pump Water Heaters",
+    "source": "Internal mock based on IRS 25C guidance",
+    "source_url": "https://www.irs.gov/credits-deductions/energy-efficient-home-improvement-credit",
+    "incentive_type": "Tax Credit",
+    "eligible_upgrades": ["heat_pump_water_heater"],
+    "geographic_scope": ["federal", "georgia", "atlanta"],
+    "utility": null,
+    "amount_rule": {
+      "type": "percentage_cap",
+      "percent": 0.3,
+      "cap": 2000
+    },
+    "stackable": true,
+    "eligibility": "Existing homes may qualify for 30% of qualified heat pump water heater costs up to the annual heat pump equipment cap.",
+    "citation_snippet": "Heat pump water heaters are included in the 25C high-efficiency heat pump equipment category with a $2,000 annual cap."
+  },
+  {
+    "id": "ga-power-home-energy-heat-pump",
+    "name": "Georgia Power Home Energy Improvement Rebate - Heat Pump",
+    "source": "Internal mock utility rebate",
+    "source_url": "https://www.georgiapower.com/residential/save-money-and-energy/products-programs/home-energy-improvement.html",
+    "incentive_type": "Utility Rebate",
+    "eligible_upgrades": ["heat_pump"],
+    "geographic_scope": ["georgia", "atlanta"],
+    "utility": "Georgia Power",
+    "amount_rule": {
+      "type": "fixed",
+      "amount": 750
+    },
+    "stackable": true,
+    "eligibility": "Modeled as available to Georgia Power residential customers installing qualifying high-efficiency heat pump equipment.",
+    "citation_snippet": "Georgia Power residential efficiency programs commonly include rebates for qualifying HVAC upgrades."
+  },
+  {
+    "id": "ga-power-home-energy-envelope",
+    "name": "Georgia Power Home Energy Improvement Rebate - Envelope",
+    "source": "Internal mock utility rebate",
+    "source_url": "https://www.georgiapower.com/residential/save-money-and-energy/products-programs/home-energy-improvement.html",
+    "incentive_type": "Utility Rebate",
+    "eligible_upgrades": ["attic_insulation", "air_sealing"],
+    "geographic_scope": ["georgia", "atlanta"],
+    "utility": "Georgia Power",
+    "amount_rule": {
+      "type": "fixed",
+      "amount": 400
+    },
+    "stackable": true,
+    "eligibility": "Modeled as available to Georgia Power residential customers completing qualifying insulation or air sealing work.",
+    "citation_snippet": "Georgia Power residential efficiency programs commonly include rebates for qualifying home envelope improvements."
+  },
+  {
+    "id": "atl-weatherization-assistance",
+    "name": "Atlanta Area Weatherization Assistance",
+    "source": "Internal mock income-qualified program",
+    "source_url": "https://gefa.georgia.gov/weatherization-assistance-program",
+    "incentive_type": "Income-Qualified Assistance",
+    "eligible_upgrades": ["attic_insulation", "air_sealing", "heat_pump_water_heater"],
+    "geographic_scope": ["georgia", "atlanta"],
+    "utility": null,
+    "amount_rule": {
+      "type": "fixed",
+      "amount": 1500
+    },
+    "stackable": false,
+    "eligibility": "Modeled as potentially available for income-qualified households in the Atlanta area. Household income verification is required.",
+    "income_max": 65000,
+    "citation_snippet": "Georgia's Weatherization Assistance Program supports energy efficiency improvements for eligible low-income households."
+  }
+]

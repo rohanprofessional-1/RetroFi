@@ -1,0 +1,168 @@
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
+
+class IncentiveAnalysisRequest(BaseModel):
+    address: str
+    zip_code: Optional[str] = None
+    home_type: Optional[str] = None
+    year_built: Optional[int] = None
+    square_footage: Optional[int] = None
+    household_income: Optional[float] = None
+    utility: Optional[str] = None
+    upgrade_interests: List[str] = Field(default_factory=list)
+
+
+class SourceCitation(BaseModel):
+    id: str
+    title: str
+    source: str
+    source_url: Optional[str] = None
+    snippet: str
+
+
+class IncentiveMatch(BaseModel):
+    id: str
+    name: str
+    source: str
+    incentive_type: str
+    amount: float
+    amount_description: str
+    eligible_upgrades: List[str]
+    eligibility_notes: str
+    stackable: bool
+    citation_id: str
+
+
+class UpgradeAnalysis(BaseModel):
+    upgrade_key: str
+    name: str
+    description: str
+    rank: int
+    gross_cost: float
+    net_cost: float
+    annual_savings: float
+    carbon_avoided_tons: float
+    payback_years: Optional[float]
+    confidence: str
+    matched_incentives: List[IncentiveMatch]
+    citations: List[str]
+
+
+class AnalysisAssumptions(BaseModel):
+    location: str
+    square_footage: int
+    home_type: str
+    utility: str
+    notes: List[str]
+
+
+class IncentiveAnalysisResponse(BaseModel):
+    address: str
+    summary: str
+    ranked_upgrades: List[UpgradeAnalysis]
+    eligible_incentives: List[IncentiveMatch]
+    assumptions: AnalysisAssumptions
+    citations: List[SourceCitation]
+
+
+class PropertyProfile(BaseModel):
+    address: str
+    zip_code: Optional[str] = None
+    home_type: Optional[str] = None
+    year_built: Optional[int] = None
+    square_footage: Optional[int] = None
+    bedrooms: Optional[int] = None
+    stories: Optional[float] = None
+    heating_fuel: Optional[str] = None
+    cooling_type: Optional[str] = None
+    water_heater_fuel: Optional[str] = None
+
+
+class HouseholdProfile(BaseModel):
+    household_income: Optional[float] = None
+    household_size: Optional[int] = None
+    owner_occupied: Optional[bool] = None
+    tax_liability_estimate: Optional[float] = None
+    utility: Optional[str] = None
+    electric_rate_per_kwh: Optional[float] = None
+    gas_rate_per_therm: Optional[float] = None
+
+
+class SolarPotentialInput(BaseModel):
+    solar_viable: bool = False
+    max_array_panels: Optional[int] = None
+    yearly_energy_dc_kwh: Optional[float] = None
+    installed_system_kw: Optional[float] = None
+    estimated_install_cost: Optional[float] = None
+    annual_sunshine_hours: Optional[float] = None
+    roof_segment_count: Optional[int] = None
+
+
+class RetcastInput(BaseModel):
+    baseline_annual_kwh: Optional[float] = None
+    baseline_annual_therms: Optional[float] = None
+    projected_annual_kwh: Optional[float] = None
+    projected_annual_therms: Optional[float] = None
+    grid_carbon_kg_per_kwh: Optional[float] = None
+    gas_carbon_kg_per_therm: Optional[float] = None
+    confidence: Optional[str] = None
+
+
+class RetrofitCalculationRequest(BaseModel):
+    property: PropertyProfile
+    household: HouseholdProfile = Field(default_factory=HouseholdProfile)
+    solar: Optional[SolarPotentialInput] = None
+    retcast: Optional[RetcastInput] = None
+    upgrade_interests: List[str] = Field(default_factory=list)
+
+
+class RetrofitOptionCalculation(BaseModel):
+    upgrade_key: str
+    name: str
+    description: str
+    rank: int
+    gross_cost: float
+    incentive_total: float
+    net_cost: float
+    annual_savings: float
+    carbon_avoided_tons: float
+    payback_years: Optional[float]
+    score: float
+    confidence: str
+    matched_incentives: List[IncentiveMatch]
+    citations: List[str]
+    calculation_notes: List[str]
+
+
+class RetrofitCalculationTotals(BaseModel):
+    gross_cost: float
+    incentive_total: float
+    net_cost: float
+    annual_savings: float
+    carbon_avoided_tons: float
+
+
+class LlmContext(BaseModel):
+    homeowner_summary_facts: List[str]
+    ranked_option_facts: List[str]
+    assumptions: List[str]
+    missing_inputs: List[str]
+    citation_snippets: List[str]
+
+
+class RetrofitCalculationResponse(BaseModel):
+    address: str
+    ranked_options: List[RetrofitOptionCalculation]
+    totals: RetrofitCalculationTotals
+    assumptions: AnalysisAssumptions
+    citations: List[SourceCitation]
+    llm_context: LlmContext
+
+
+class RetrofitSummaryResponse(BaseModel):
+    calculation: RetrofitCalculationResponse
+    llm_summary: str
+    summary_source: str
+    model: Optional[str] = None

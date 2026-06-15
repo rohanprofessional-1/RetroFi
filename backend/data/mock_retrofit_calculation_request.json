@@ -1,0 +1,42 @@
+{
+  "property": {
+    "address": "123 Peachtree St NE, Atlanta, GA",
+    "zip_code": "30308",
+    "home_type": "single_family",
+    "year_built": 1935,
+    "square_footage": 1800,
+    "bedrooms": 3,
+    "stories": 2,
+    "heating_fuel": "natural_gas",
+    "cooling_type": "central_ac",
+    "water_heater_fuel": "gas"
+  },
+  "household": {
+    "household_income": 62000,
+    "household_size": 3,
+    "owner_occupied": true,
+    "tax_liability_estimate": 4500,
+    "utility": "Georgia Power",
+    "electric_rate_per_kwh": 0.14,
+    "gas_rate_per_therm": 1.35
+  },
+  "solar": {
+    "solar_viable": true,
+    "max_array_panels": 24,
+    "yearly_energy_dc_kwh": 9200,
+    "installed_system_kw": 7.2,
+    "estimated_install_cost": 21600,
+    "annual_sunshine_hours": 1850,
+    "roof_segment_count": 4
+  },
+  "retcast": {
+    "baseline_annual_kwh": 13500,
+    "baseline_annual_therms": 720,
+    "projected_annual_kwh": 11200,
+    "projected_annual_therms": 500,
+    "grid_carbon_kg_per_kwh": 0.39,
+    "gas_carbon_kg_per_therm": 5.3,
+    "confidence": "medium"
+  },
+  "upgrade_interests": []
+}

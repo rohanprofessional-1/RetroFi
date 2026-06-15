@@ -1,6 +1,8 @@
-fastapi>=0.137
-uvicorn[standard]>=0.32
-sqlmodel>=0.0.38
-httpx>=0.28
-anthropic>=0.109
-python-dotenv>=1.0
+fastapi
+uvicorn
+sqlmodel
+chromadb
+beautifulsoup4
+pypdf
+httpx
+python-dotenv
