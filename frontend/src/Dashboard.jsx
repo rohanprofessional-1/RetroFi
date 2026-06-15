@@ -113,7 +113,6 @@ function StepCard({ option }) {
       <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>Step {option.rank}</span>
       <h4 style={{ marginTop: '0.5rem' }}>{option.name}</h4>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-        Start here because it has the best mix of savings, incentives, carbon impact, and payback.
       </p>
       <div style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)' }}>
         <span>Net cost: <strong style={{ color: 'var(--text-primary)' }}>{currency.format(option.net_cost)}</strong></span>
