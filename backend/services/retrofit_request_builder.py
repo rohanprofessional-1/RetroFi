@@ -6,6 +6,7 @@ from schemas import (
     PropertyProfile,
     RetcastInput,
     RetrofitCalculationRequest,
+    RetrofitPreferences,
     SolarPotentialInput,
 )
 from services.retrofit_calculator import (
@@ -45,6 +46,13 @@ def build_retrofit_calculation_request(
             utility=answers.get("utility") or "Georgia Power",
             electric_rate_per_kwh=DEFAULT_ELECTRIC_RATE,
             gas_rate_per_therm=DEFAULT_GAS_RATE,
+        ),
+        preferences=RetrofitPreferences(
+            primary_goal=_primary_goal(answers.get("primary_goal")),
+            roof_type=_roof_type(answers.get("roof_type") or meta.get("roof_type")),
+            roof_replacement_status=_roof_replacement_status(answers.get("planning_roof_replacement")),
+            ev_owner_or_planning=_ev_status(answers.get("ev_owner_or_planning")),
+            planned_electric_additions=_yes_no(answers.get("planned_electric_additions")),
         ),
         solar=_solar_input(solar_data),
         retcast=_retcast_input(monthly_electric_bill, monthly_gas_bill),
@@ -120,6 +128,73 @@ def _home_type(value) -> Optional[str]:
     return str(value)
 
 
+def _primary_goal(value) -> Optional[str]:
+    if not value:
+        return None
+    normalized = str(value).lower()
+    if "bill" in normalized:
+        return "lower_bills"
+    if "backup" in normalized:
+        return "backup_power"
+    if "carbon" in normalized:
+        return "reduce_carbon"
+    if "value" in normalized:
+        return "increase_home_value"
+    return "other"
+
+
+def _roof_type(value) -> Optional[str]:
+    if not value:
+        return None
+    normalized = str(value).lower()
+    if "asphalt" in normalized or "shingle" in normalized:
+        return "asphalt_shingle"
+    if "metal" in normalized:
+        return "metal"
+    if "tile" in normalized:
+        return "tile"
+    if "flat" in normalized or "tpo" in normalized:
+        return "flat"
+    return "other"
+
+
+def _roof_replacement_status(value) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).lower()
+    if normalized.startswith("yes"):
+        return "yes"
+    if normalized.startswith("no"):
+        return "no"
+    if "sure" in normalized:
+        return "unsure"
+    return None
+
+
+def _ev_status(value) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).lower()
+    if "own" in normalized:
+        return "owns_ev"
+    if "planning" in normalized or "plan" in normalized:
+        return "planning_ev"
+    if normalized.startswith("no"):
+        return "none"
+    return None
+
+
+def _yes_no(value) -> Optional[bool]:
+    if value is None:
+        return None
+    normalized = str(value).lower()
+    if normalized.startswith("yes"):
+        return True
+    if normalized.startswith("no"):
+        return False
+    return None
+
+
 def _year_built(value) -> Optional[int]:
     if value is None:
         return None
@@ -152,9 +227,11 @@ def _fuel(value) -> Optional[str]:
     if not value:
         return None
     normalized = str(value).lower()
+    if "heat pump" in normalized or "heat_pump" in normalized:
+        return "heat_pump"
     if "gas" in normalized:
         return "natural_gas"
-    if "electric" in normalized or "heat_pump" in normalized:
+    if "electric" in normalized:
         return "electric"
     if "propane" in normalized:
         return "propane"

@@ -52,6 +52,11 @@ UPGRADE_ALIASES = {
     "solar": ["solar", "solar pv", "photovoltaic", "clean energy"],
     "battery_storage": ["battery", "battery storage"],
     "electrical_panel": ["electric panel", "electrical panel", "panelboard"],
+    "benchmarking": ["benchmarking", "energy audit", "audit", "portfolio manager"],
+    "common_area_lighting": ["common area lighting", "lighting", "controls"],
+    "hvac_controls": ["hvac controls", "building controls", "ventilation", "rtu"],
+    "building_envelope": ["building envelope", "envelope", "multifamily insulation"],
+    "ev_charging": ["ev charging", "ev charger", "multifamily parking"],
 }
 
 
@@ -163,6 +168,7 @@ class IncentiveIndex:
         scored = [
             self._with_incentive_score(document, query, categories)
             for document in self.incentives
+            if _market_segment_matches(document, query)
         ]
         matches = [document for document in scored if document["score"] > 0]
         return sorted(matches, key=lambda document: document["score"], reverse=True)[:limit]
@@ -190,6 +196,7 @@ class IncentiveIndex:
         zip_code = (_get_value(query, "zip_code", "") or "").lower()
         utility = (_get_value(query, "utility", "") or "").lower()
         household_income = _get_value(query, "household_income")
+        owner_occupied = _get_value(query, "owner_occupied")
         scopes = set(document.get("geographic_scope", []))
 
         if "federal" in scopes:
@@ -207,6 +214,10 @@ class IncentiveIndex:
 
         income_max = document.get("income_max")
         eligibility_status = "likely_eligible"
+        if owner_occupied is False and _requires_owner_occupancy(document):
+            eligibility_status = "renter_needs_owner_approval"
+            score -= 100
+
         if income_max is not None:
             if household_income is None:
                 eligibility_status = "needs_income_verification"
@@ -233,6 +244,7 @@ class IncentiveIndex:
         return {
             **document,
             "score": score,
+            "market_segments": _document_market_segments(document),
             "matched_upgrade_keys": sorted(category_matches),
             "eligibility_status": eligibility_status,
             "amount_description": amount_description(document.get("amount_rule", {})),
@@ -269,9 +281,14 @@ class IncentiveIndex:
             jurisdiction=jurisdiction,
             utility=utility,
         )
-        return [
+        matches = [
             self._vector_match_to_incentive(match, query)
             for match in vector_matches
+        ]
+        return [
+            match
+            for match in matches
+            if _market_segment_matches(match, query)
         ]
 
     def _vector_match_to_incentive(self, match: Dict[str, Any], query: Any) -> Dict[str, Any]:
@@ -280,6 +297,8 @@ class IncentiveIndex:
         eligibility_status = "likely_eligible"
         if match.get("income_rules") and _get_value(query, "household_income") is None:
             eligibility_status = "needs_income_verification"
+        if _get_value(query, "owner_occupied") is False and _vector_match_requires_owner_occupancy(match):
+            eligibility_status = "renter_needs_owner_approval"
 
         return {
             "id": match["id"],
@@ -289,6 +308,7 @@ class IncentiveIndex:
             "incentive_type": _incentive_type(match),
             "eligible_upgrades": [measure] if measure else [],
             "geographic_scope": _geographic_scope(match.get("jurisdiction", "")),
+            "market_segments": _vector_match_market_segments(match),
             "utility": match.get("utility_territory") or None,
             "amount_rule": amount_rule,
             "stackable": _is_stackable(match),
@@ -358,6 +378,52 @@ def _incentive_type(match: Dict[str, Any]) -> str:
 def _is_stackable(match: Dict[str, Any]) -> bool:
     notes = (match.get("stacking_notes") or "").lower()
     return "not stack" not in notes and "cannot be combined" not in notes
+
+
+def _market_segment_matches(document: Dict[str, Any], query: Any) -> bool:
+    query_segment = (_get_value(query, "market_segment", "homeowner") or "homeowner").lower()
+    return query_segment in _document_market_segments(document)
+
+
+def _document_market_segments(document: Dict[str, Any]) -> List[str]:
+    segments = document.get("market_segments")
+    if not segments:
+        return ["homeowner"]
+    return [str(segment).lower() for segment in segments]
+
+
+def _vector_match_market_segments(match: Dict[str, Any]) -> List[str]:
+    source_type = (match.get("source_type") or "").lower()
+    raw_text = (match.get("raw_text_chunk") or "").lower()
+    if any(value in source_type or value in raw_text for value in ("multifamily", "multi-family", "apartment")):
+        return ["multifamily", "building"]
+    if any(value in source_type or value in raw_text for value in ("commercial", "business")):
+        return ["commercial", "building"]
+    return ["homeowner"]
+
+
+def _requires_owner_occupancy(document: Dict[str, Any]) -> bool:
+    text = _document_text(document)
+    incentive_type = (document.get("incentive_type") or "").lower()
+    return (
+        "owner-occupied" in text.lower()
+        or "homeowner" in text.lower()
+        or incentive_type == "tax credit"
+    )
+
+
+def _vector_match_requires_owner_occupancy(match: Dict[str, Any]) -> bool:
+    text = _join_notes(
+        match.get("equipment_requirements", ""),
+        match.get("eligibility_rules", ""),
+        match.get("raw_text_chunk", ""),
+    ).lower()
+    source_type = (match.get("source_type") or "").lower()
+    return (
+        "owner-occupied" in text
+        or "homeowner" in text
+        or source_type.startswith("irs")
+    )
 
 
 def _join_notes(*values: str) -> str:

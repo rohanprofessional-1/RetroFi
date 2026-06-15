@@ -104,5 +104,59 @@
     "eligibility": "Modeled as potentially available for income-qualified households in the Atlanta area. Household income verification is required.",
     "income_max": 65000,
     "citation_snippet": "Georgia's Weatherization Assistance Program supports energy efficiency improvements for eligible low-income households."
+  },
+  {
+    "id": "ga-power-multifamily-energy-assessment",
+    "name": "Georgia Power Multifamily Energy Assessment",
+    "source": "Internal mock utility program",
+    "source_url": "https://www.georgiapower.com/residential/save-money-and-energy.html",
+    "incentive_type": "Utility Program",
+    "eligible_upgrades": ["benchmarking", "common_area_lighting", "hvac_controls"],
+    "geographic_scope": ["georgia", "atlanta"],
+    "market_segments": ["multifamily", "building"],
+    "utility": "Georgia Power",
+    "amount_rule": {
+      "type": "fixed",
+      "amount": 2500
+    },
+    "stackable": true,
+    "eligibility": "Modeled as a multifamily assessment and common-area efficiency support program for Georgia Power properties. Final eligibility depends on account type, meter scope, and program availability.",
+    "citation_snippet": "Multifamily and commercial building owners commonly need an assessment, utility account verification, and qualifying equipment scope before rebates are reserved."
+  },
+  {
+    "id": "federal-commercial-179d-building-efficiency",
+    "name": "Federal 179D Commercial Buildings Energy Efficiency Deduction",
+    "source": "Internal mock based on IRS 179D guidance",
+    "source_url": "https://www.irs.gov/credits-deductions/energy-efficient-commercial-buildings-deduction",
+    "incentive_type": "Tax Deduction",
+    "eligible_upgrades": ["building_envelope", "hvac_controls", "common_area_lighting"],
+    "geographic_scope": ["federal", "georgia", "atlanta"],
+    "market_segments": ["commercial", "building", "multifamily"],
+    "utility": null,
+    "amount_rule": {
+      "type": "source_defined",
+      "amount": 0
+    },
+    "stackable": true,
+    "eligibility": "Commercial and certain multifamily building efficiency projects may need modeled energy savings, prevailing wage/apprenticeship review, and tax advisor confirmation before value is counted.",
+    "citation_snippet": "The 179D deduction is tied to qualifying energy efficient commercial building property and requires specific compliance documentation."
+  },
+  {
+    "id": "atl-multifamily-ev-ready",
+    "name": "Atlanta Multifamily EV-Ready Planning Support",
+    "source": "Internal mock local planning incentive",
+    "source_url": null,
+    "incentive_type": "Planning Support",
+    "eligible_upgrades": ["ev_charging", "electrical_panel"],
+    "geographic_scope": ["georgia", "atlanta"],
+    "market_segments": ["multifamily", "commercial", "building"],
+    "utility": null,
+    "amount_rule": {
+      "type": "fixed",
+      "amount": 1000
+    },
+    "stackable": true,
+    "eligibility": "Modeled as planning support for multifamily or commercial sites evaluating EV charging readiness. Final eligibility depends on parking control, electrical capacity, and program availability.",
+    "citation_snippet": "Multifamily EV charging programs commonly require site control, parking access, electrical capacity review, and utility coordination."
   }
 ]

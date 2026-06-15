@@ -19,6 +19,24 @@ const FIELD_LABELS = {
   planned_electric_additions: 'Planned Electric Additions',
 };
 
+const BUILDING_FIELD_LABELS = {
+  role: 'User Role',
+  scope: 'Analysis Scope',
+  home_ownership_status: 'Ownership / Occupancy',
+  home_type: 'Public Record Property Type',
+  building_type: 'Building Type',
+  year_built: 'Year Built',
+  square_footage: 'Gross Floor Area',
+  units: 'Units',
+  utility_structure: 'Utility / Meter Structure',
+  electric_bill_responsibility: 'Electric Bill Responsibility',
+  gas_bill_responsibility: 'Gas Bill Responsibility',
+  hvac_system_type: 'HVAC System',
+  domestic_hot_water_type: 'Domestic Hot Water',
+  roof_control: 'Roof Control',
+  primary_goal: 'Primary Goal',
+};
+
 function formatValue(key, value) {
   if (value === null || value === undefined) return null;
   if (key === 'square_footage') return `${Number(value).toLocaleString()} sq ft`;
@@ -33,23 +51,36 @@ function formatValue(key, value) {
 function PropertyVerification() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { pre_filled, meta, address } = location.state || {};
+  const { pre_filled, meta, address, mode = 'homeowner', requestedMode, role, scope } = location.state || {};
 
   if (!pre_filled) {
     navigate('/');
     return null;
   }
 
-  const confirmed = Object.entries(FIELD_LABELS).filter(
-    ([key]) => pre_filled[key] !== null && pre_filled[key] !== undefined,
+  const labels = mode === 'homeowner' ? FIELD_LABELS : BUILDING_FIELD_LABELS;
+  const preparedAnswers = {
+    ...pre_filled,
+    role,
+    scope,
+  };
+  const confirmed = Object.entries(labels).filter(
+    ([key]) => preparedAnswers[key] !== null && preparedAnswers[key] !== undefined,
   );
-  const pending = Object.entries(FIELD_LABELS).filter(
-    ([key]) => pre_filled[key] === null || pre_filled[key] === undefined,
+  const pending = Object.entries(labels).filter(
+    ([key]) => preparedAnswers[key] === null || preparedAnswers[key] === undefined,
   );
 
   const handleContinue = () => {
     navigate('/questionnaire', {
-      state: { answers: { ...pre_filled, _questions_asked: 0 }, address },
+      state: {
+        answers: { ...preparedAnswers, _questions_asked: 0 },
+        address,
+        mode,
+        requestedMode,
+        role,
+        scope,
+      },
     });
   };
 
@@ -58,7 +89,7 @@ function PropertyVerification() {
       <div className="animate-fade-in" style={{ maxWidth: '800px', width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-            <span className="text-gradient">Property Verified</span>
+            <span className="text-gradient">{mode === 'homeowner' ? 'Property Verified' : 'Building Profile Started'}</span>
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
             {meta?.formatted_address || address}
@@ -78,7 +109,7 @@ function PropertyVerification() {
                   <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.6rem 0.75rem', background: 'rgba(16, 185, 129, 0.07)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px' }}>
                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{label}</span>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem', textAlign: 'right' }}>
-                      {formatValue(key, pre_filled[key])}
+                      {formatValue(key, preparedAnswers[key])}
                     </span>
                   </div>
                 ))}

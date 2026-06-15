@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -11,6 +12,12 @@ from schemas import (
     RetrofitCalculationRequest,
     RetrofitCalculationResponse,
     RetrofitSummaryResponse,
+)
+from services.building_classifier import HOMEOWNER_MODE, classify_retrofit_mode
+from services.building_retrofit_model import (
+    analyze_building_retrofit,
+    build_building_retrofit_request,
+    building_summary,
 )
 from services.llm_summary import summarize_retrofit_calculation
 from services.property_data import get_property_and_solar_data
@@ -45,6 +52,9 @@ app.add_middleware(
 
 class PropertyLookupRequest(BaseModel):
     address: str
+    mode: Optional[str] = None
+    role: Optional[str] = None
+    scope: Optional[str] = None
 
 
 class QuestionnaireNextRequest(BaseModel):
@@ -54,6 +64,9 @@ class QuestionnaireNextRequest(BaseModel):
 class GeneratePlanRequest(BaseModel):
     address: str
     answers: dict
+    mode: Optional[str] = None
+    role: Optional[str] = None
+    scope: Optional[str] = None
 
 # Connect to a local SQLite database for boilerplate/development for now,
 # but can easily be swapped for Postgres later as per the stack requirements.
@@ -103,7 +116,11 @@ def property_lookup(request: PropertyLookupRequest):
         raise HTTPException(status_code=502, detail=f"RentCast API error: {exc}") from exc
 
     meta = pre_filled.pop("_property_meta", {})
-    return {"pre_filled": pre_filled, "meta": meta}
+    mode = classify_retrofit_mode(
+        {**pre_filled, "_property_meta": meta, "role": request.role, "scope": request.scope},
+        requested_mode=request.mode,
+    )
+    return {"pre_filled": pre_filled, "meta": meta, "mode": mode, "role": request.role, "scope": request.scope}
 
 
 @app.post("/questionnaire/next")
@@ -113,6 +130,7 @@ def questionnaire_next(request: QuestionnaireNextRequest):
 
 @app.post("/generate-plan", response_model=RetrofitSummaryResponse)
 async def generate_plan(request: GeneratePlanRequest):
+    request_context = _request_context(request)
     monthly_bill = _money_to_float(request.answers.get("monthly_electricity_bill"))
     try:
         combined = await get_property_and_solar_data(request.address, monthly_bill)
@@ -122,9 +140,25 @@ async def generate_plan(request: GeneratePlanRequest):
         raise HTTPException(status_code=502, detail=f"Property or solar API error: {exc}") from exc
 
     solar_data = combined.get("_solar_data")
-    answers = {**combined, **request.answers}
+    answers = {**combined, **request.answers, **request_context}
     if "_property_meta" not in answers and combined.get("_property_meta"):
         answers["_property_meta"] = combined["_property_meta"]
+
+    mode = classify_retrofit_mode(answers, requested_mode=request.mode)
+    if mode != HOMEOWNER_MODE:
+        building_request = build_building_retrofit_request(
+            address=request.address,
+            answers=answers,
+            mode=mode,
+        )
+        building_analysis = analyze_building_retrofit(building_request)
+        return RetrofitSummaryResponse(
+            mode=mode,
+            building_analysis=building_analysis,
+            llm_summary=building_summary(building_analysis),
+            summary_source="building_mode",
+            model=None,
+        )
 
     calculation_request = build_retrofit_calculation_request(
         address=request.address,
@@ -132,7 +166,8 @@ async def generate_plan(request: GeneratePlanRequest):
         solar_data=solar_data,
     )
     calculation = calculate_retrofit_options(calculation_request)
-    return summarize_retrofit_calculation(calculation)
+    summary = summarize_retrofit_calculation(calculation)
+    return _copy_summary_with_mode(summary, HOMEOWNER_MODE)
 
 
 @app.post("/generate-plan/", response_model=RetrofitSummaryResponse)
@@ -147,3 +182,20 @@ def _money_to_float(value) -> float:
         return float(value)
     cleaned = "".join(char for char in str(value) if char.isdigit() or char == ".")
     return float(cleaned) if cleaned else 0.0
+
+
+def _request_context(request: GeneratePlanRequest) -> dict:
+    context = {}
+    if request.mode:
+        context["mode"] = request.mode
+    if request.role:
+        context["role"] = request.role
+    if request.scope:
+        context["scope"] = request.scope
+    return context
+
+
+def _copy_summary_with_mode(summary: RetrofitSummaryResponse, mode: str) -> RetrofitSummaryResponse:
+    if hasattr(summary, "model_copy"):
+        return summary.model_copy(update={"mode": mode})
+    return summary.copy(update={"mode": mode})

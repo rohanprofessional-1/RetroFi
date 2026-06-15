@@ -47,7 +47,7 @@ def calculate_retrofit_options(
         )
         rows.append((option.score, option))
 
-    if request.solar and request.solar.solar_viable:
+    if request.solar and request.solar.solar_viable and _allows_rooftop_solar(request):
         solar_incentives = incentive_index.search_incentives(
             _to_incentive_request(request, upgrade_interests=["solar"]),
             limit=8,
@@ -130,7 +130,7 @@ def _calculate_efficiency_option(
         annual_savings=annual_savings,
         carbon_avoided=carbon_avoided,
         confidence=cost_document["confidence"],
-    )
+    ) + _goal_score_bonus(request, upgrade_key)
 
     return RetrofitOptionCalculation(
         upgrade_key=upgrade_key,
@@ -161,11 +161,14 @@ def _calculate_solar_option(
     citations_by_id: Dict[str, SourceCitation],
 ) -> RetrofitOptionCalculation:
     solar = request.solar
-    gross_cost = solar.estimated_install_cost or (
+    base_gross_cost = solar.estimated_install_cost or (
         (solar.installed_system_kw or 0) * 1000 * DEFAULT_SOLAR_DOLLARS_PER_WATT
     )
+    gross_multiplier, gross_notes = _solar_cost_adjustment(request)
+    gross_cost = base_gross_cost * gross_multiplier
     annual_kwh = solar.yearly_energy_dc_kwh or (solar.installed_system_kw or 0) * 1300
-    annual_savings = annual_kwh * SOLAR_AC_DERATE * _electric_rate(request)
+    value_multiplier, value_notes = _solar_value_adjustment(request)
+    annual_savings = annual_kwh * SOLAR_AC_DERATE * _electric_rate(request) * value_multiplier
     carbon_avoided = annual_kwh * SOLAR_AC_DERATE * _grid_carbon(request) / 1000
     matched_incentives = _matched_incentives_for_upgrade(
         upgrade_key="solar",
@@ -183,7 +186,7 @@ def _calculate_solar_option(
         annual_savings=annual_savings,
         carbon_avoided=carbon_avoided,
         confidence="medium",
-    ) + 2
+    ) + 2 + _goal_score_bonus(request, "solar") + _solar_timing_score_adjustment(request)
 
     solar_citation_id = "citation-google-solar-input"
     citations_by_id[solar_citation_id] = SourceCitation(
@@ -211,6 +214,9 @@ def _calculate_solar_option(
         citations=[solar_citation_id] + [incentive.citation_id for incentive in selected_incentives],
         calculation_notes=[
             "Solar production uses DTO-provided yearly DC kWh with a conservative AC derate.",
+            *gross_notes,
+            *value_notes,
+            *_solar_timing_notes(request),
             f"Electric bill savings use ${_electric_rate(request):.3f}/kWh.",
             f"Carbon avoided uses {_grid_carbon(request):.3f} kg CO2/kWh.",
         ],
@@ -228,7 +234,9 @@ def _to_incentive_request(
         year_built=request.property.year_built,
         square_footage=request.property.square_footage,
         household_income=request.household.household_income,
+        owner_occupied=request.household.owner_occupied,
         utility=request.household.utility,
+        market_segment="homeowner",
         upgrade_interests=upgrade_interests if upgrade_interests is not None else request.upgrade_interests,
     )
 
@@ -246,11 +254,15 @@ def _annual_savings(request: RetrofitCalculationRequest, cost_document: Dict) ->
         cost_document["annual_savings"],
         request.property.square_footage or DEFAULT_SQUARE_FOOTAGE,
     )
+    upgrade_key = cost_document["upgrade_key"]
+    adjustment, adjustment_notes = _efficiency_savings_adjustment(request, upgrade_key)
     retcast_delta = _retcast_energy_savings(request)
     if retcast_delta <= 0:
-        return seed_savings, ["Annual savings use install-cost seed assumptions because Retcast projected savings were not available."]
+        return seed_savings * adjustment, [
+            "Annual savings use install-cost seed assumptions because Retcast projected savings were not available.",
+            *adjustment_notes,
+        ]
 
-    upgrade_key = cost_document["upgrade_key"]
     if upgrade_key in {"heat_pump", "heat_pump_water_heater"}:
         retcast_savings = retcast_delta * 0.45
     elif upgrade_key in {"attic_insulation", "air_sealing"}:
@@ -259,13 +271,21 @@ def _annual_savings(request: RetrofitCalculationRequest, cost_document: Dict) ->
         retcast_savings = seed_savings
 
     blended_savings = max(seed_savings * 0.75, min(retcast_savings, seed_savings * 1.5))
-    return blended_savings, ["Annual savings blend seed assumptions with Retcast-provided projected energy savings."]
+    return blended_savings * adjustment, [
+        "Annual savings blend seed assumptions with Retcast-provided projected energy savings.",
+        *adjustment_notes,
+    ]
 
 
 def _carbon_avoided(request: RetrofitCalculationRequest, cost_document: Dict) -> Tuple[float, List[str]]:
     retcast = request.retcast
+    upgrade_key = cost_document["upgrade_key"]
+    adjustment, adjustment_notes = _efficiency_carbon_adjustment(request, upgrade_key)
     if not retcast:
-        return cost_document["carbon_avoided_tons"], ["Carbon avoided uses seed assumptions because Retcast data was not provided."]
+        return cost_document["carbon_avoided_tons"] * adjustment, [
+            "Carbon avoided uses seed assumptions because Retcast data was not provided.",
+            *adjustment_notes,
+        ]
 
     kwh_delta = max((retcast.baseline_annual_kwh or 0) - (retcast.projected_annual_kwh or 0), 0)
     therm_delta = max((retcast.baseline_annual_therms or 0) - (retcast.projected_annual_therms or 0), 0)
@@ -274,10 +294,194 @@ def _carbon_avoided(request: RetrofitCalculationRequest, cost_document: Dict) ->
         + therm_delta * (retcast.gas_carbon_kg_per_therm or DEFAULT_GAS_CARBON_KG_PER_THERM)
     ) / 1000
     if total_tons <= 0:
-        return cost_document["carbon_avoided_tons"], ["Carbon avoided falls back to seed assumptions because Retcast deltas were not positive."]
+        return cost_document["carbon_avoided_tons"] * adjustment, [
+            "Carbon avoided falls back to seed assumptions because Retcast deltas were not positive.",
+            *adjustment_notes,
+        ]
 
-    share = 0.45 if cost_document["upgrade_key"] in {"heat_pump", "heat_pump_water_heater"} else 0.25
-    return total_tons * share, ["Carbon avoided uses Retcast energy deltas and emissions factors."]
+    share = 0.45 if upgrade_key in {"heat_pump", "heat_pump_water_heater"} else 0.25
+    return total_tons * share * adjustment, [
+        "Carbon avoided uses Retcast energy deltas and emissions factors.",
+        *adjustment_notes,
+    ]
+
+
+def _efficiency_savings_adjustment(request: RetrofitCalculationRequest, upgrade_key: str) -> Tuple[float, List[str]]:
+    notes: List[str] = []
+    multiplier = 1.0
+
+    if upgrade_key == "heat_pump":
+        fuel = request.property.heating_fuel
+        fuel_multiplier = {
+            "natural_gas": 1.15,
+            "propane": 1.25,
+            "oil": 1.25,
+            "electric": 0.9,
+            "heat_pump": 0.35,
+        }.get(fuel, 1.0)
+        multiplier *= fuel_multiplier
+        if fuel:
+            notes.append(f"Heat pump savings are adjusted for current heating fuel: {fuel}.")
+
+    if upgrade_key == "heat_pump_water_heater":
+        fuel = request.property.water_heater_fuel
+        fuel_multiplier = {
+            "natural_gas": 1.2,
+            "propane": 1.2,
+            "oil": 1.2,
+            "mixed": 1.1,
+            "electric": 0.9,
+            "heat_pump": 0.35,
+        }.get(fuel, 1.0)
+        occupancy_multiplier = _water_heating_occupancy_multiplier(request)
+        multiplier *= fuel_multiplier * occupancy_multiplier
+        if fuel:
+            notes.append(f"Water-heater savings are adjusted for current appliance fuel: {fuel}.")
+        if occupancy_multiplier != 1.0:
+            notes.append("Water-heater savings are adjusted for household size.")
+
+    if upgrade_key in {"attic_insulation", "air_sealing"}:
+        age_multiplier = _envelope_age_multiplier(request)
+        multiplier *= age_multiplier
+        if age_multiplier != 1.0:
+            notes.append("Envelope savings are adjusted for home age.")
+
+    return multiplier, notes
+
+
+def _efficiency_carbon_adjustment(request: RetrofitCalculationRequest, upgrade_key: str) -> Tuple[float, List[str]]:
+    notes: List[str] = []
+    multiplier = 1.0
+
+    if upgrade_key == "heat_pump":
+        fuel = request.property.heating_fuel
+        fuel_multiplier = {
+            "natural_gas": 1.25,
+            "propane": 1.5,
+            "oil": 1.5,
+            "electric": 0.8,
+            "heat_pump": 0.25,
+        }.get(fuel, 1.0)
+        multiplier *= fuel_multiplier
+        if fuel:
+            notes.append(f"Heat pump carbon impact is adjusted for current heating fuel: {fuel}.")
+
+    if upgrade_key == "heat_pump_water_heater":
+        fuel = request.property.water_heater_fuel
+        fuel_multiplier = {
+            "natural_gas": 1.3,
+            "propane": 1.4,
+            "oil": 1.4,
+            "mixed": 1.15,
+            "electric": 0.8,
+            "heat_pump": 0.25,
+        }.get(fuel, 1.0)
+        multiplier *= fuel_multiplier * _water_heating_occupancy_multiplier(request)
+        if fuel:
+            notes.append(f"Water-heater carbon impact is adjusted for current appliance fuel: {fuel}.")
+
+    if upgrade_key in {"attic_insulation", "air_sealing"}:
+        age_multiplier = _envelope_age_multiplier(request)
+        multiplier *= age_multiplier
+        if age_multiplier != 1.0:
+            notes.append("Envelope carbon impact is adjusted for home age.")
+
+    return multiplier, notes
+
+
+def _envelope_age_multiplier(request: RetrofitCalculationRequest) -> float:
+    year_built = request.property.year_built
+    if year_built is None:
+        return 1.0
+    if year_built < 1980:
+        return 1.25
+    if year_built <= 2000:
+        return 1.1
+    if year_built > 2015:
+        return 0.75
+    return 1.0
+
+
+def _water_heating_occupancy_multiplier(request: RetrofitCalculationRequest) -> float:
+    household_size = request.household.household_size
+    if household_size is None:
+        return 1.0
+    if household_size >= 5:
+        return 1.2
+    if household_size <= 2:
+        return 0.9
+    return 1.0
+
+
+def _allows_rooftop_solar(request: RetrofitCalculationRequest) -> bool:
+    return request.property.home_type not in {"condo", "apartment"}
+
+
+def _solar_cost_adjustment(request: RetrofitCalculationRequest) -> Tuple[float, List[str]]:
+    notes: List[str] = []
+    roof_type = request.preferences.roof_type
+    multiplier = {
+        "asphalt_shingle": 1.0,
+        "metal": 1.05,
+        "tile": 1.15,
+        "flat": 1.1,
+        "other": 1.08,
+    }.get(roof_type, 1.0)
+    if roof_type and multiplier != 1.0:
+        notes.append(f"Solar install cost is adjusted for roof type: {roof_type}.")
+
+    if request.preferences.roof_replacement_status == "yes":
+        multiplier *= 0.95
+        notes.append("Solar install cost assumes modest savings from bundling with planned roof work.")
+
+    return multiplier, notes
+
+
+def _solar_value_adjustment(request: RetrofitCalculationRequest) -> Tuple[float, List[str]]:
+    notes: List[str] = []
+    multiplier = 1.0
+
+    if request.preferences.ev_owner_or_planning == "owns_ev":
+        multiplier += 0.12
+        notes.append("Solar bill value is increased for existing EV charging load.")
+    elif request.preferences.ev_owner_or_planning == "planning_ev":
+        multiplier += 0.08
+        notes.append("Solar bill value is increased for planned EV charging load.")
+
+    if request.preferences.planned_electric_additions is True:
+        multiplier += 0.05
+        notes.append("Solar bill value is increased for planned electric additions.")
+
+    return min(multiplier, 1.18), notes
+
+
+def _solar_timing_score_adjustment(request: RetrofitCalculationRequest) -> float:
+    if request.preferences.roof_replacement_status == "yes":
+        return -1.0
+    if request.preferences.roof_replacement_status == "unsure":
+        return -0.5
+    return 0
+
+
+def _solar_timing_notes(request: RetrofitCalculationRequest) -> List[str]:
+    if request.preferences.roof_replacement_status == "yes":
+        return ["Solar ranking is tempered because planned roof work should be coordinated before installation."]
+    if request.preferences.roof_replacement_status == "unsure":
+        return ["Solar ranking is slightly tempered until roof replacement timing is confirmed."]
+    return []
+
+
+def _goal_score_bonus(request: RetrofitCalculationRequest, upgrade_key: str) -> float:
+    goal = request.preferences.primary_goal
+    if goal == "lower_bills":
+        return 1.5 if upgrade_key in {"solar", "heat_pump", "attic_insulation", "air_sealing"} else 0.5
+    if goal == "reduce_carbon":
+        return 1.5 if upgrade_key in {"solar", "heat_pump"} else 0.75
+    if goal == "backup_power":
+        return 2.0 if upgrade_key == "solar" else -0.5
+    if goal == "increase_home_value":
+        return 1.25 if upgrade_key in {"solar", "heat_pump"} else 0.25
+    return 0
 
 
 def _scaled_seed_savings(seed_savings: float, square_footage: int) -> float:
@@ -304,7 +508,10 @@ def _matched_incentives_for_upgrade(
     for document in incentive_documents:
         if upgrade_key not in document.get("eligible_upgrades", []):
             continue
-        if document.get("eligibility_status") == "income_likely_too_high":
+        if document.get("eligibility_status") in {
+            "income_likely_too_high",
+            "renter_needs_owner_approval",
+        }:
             continue
         citation_id = f"citation-{document['id']}"
         citations_by_id[citation_id] = SourceCitation(
@@ -371,6 +578,8 @@ def _dedupe_incentives(incentives: List[IncentiveMatch]) -> List[IncentiveMatch]
 def _eligibility_notes(document: Dict) -> str:
     if document.get("eligibility_status") == "needs_income_verification":
         return f"{document['eligibility']} Income was not provided, so eligibility needs verification."
+    if document.get("eligibility_status") == "renter_needs_owner_approval":
+        return f"{document['eligibility']} Renter eligibility needs owner approval, so this incentive is not counted in net cost."
     return document["eligibility"]
 
 

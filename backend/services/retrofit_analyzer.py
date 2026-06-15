@@ -138,7 +138,10 @@ def _matched_incentives_for_upgrade(
     for document in incentive_documents:
         if upgrade_key not in document.get("eligible_upgrades", []):
             continue
-        if document.get("eligibility_status") == "income_likely_too_high":
+        if document.get("eligibility_status") in {
+            "income_likely_too_high",
+            "renter_needs_owner_approval",
+        }:
             continue
 
         citation_id = f"citation-{document['id']}"
@@ -194,6 +197,8 @@ def _eligibility_notes(document: Dict) -> str:
     status = document.get("eligibility_status")
     if status == "needs_income_verification":
         return f"{document['eligibility']} Income was not provided, so eligibility needs verification."
+    if status == "renter_needs_owner_approval":
+        return f"{document['eligibility']} Renter eligibility needs owner approval, so this incentive is not counted in net cost."
     return document["eligibility"]
 
 

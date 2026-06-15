@@ -10,7 +10,13 @@ class IncentiveAnalysisRequest(BaseModel):
     year_built: Optional[int] = None
     square_footage: Optional[int] = None
     household_income: Optional[float] = None
+    owner_occupied: Optional[bool] = None
     utility: Optional[str] = None
+    market_segment: str = "homeowner"
+    role: Optional[str] = None
+    building_type: Optional[str] = None
+    units: Optional[int] = None
+    utility_structure: Optional[str] = None
     upgrade_interests: List[str] = Field(default_factory=list)
 
 
@@ -90,6 +96,14 @@ class HouseholdProfile(BaseModel):
     gas_rate_per_therm: Optional[float] = None
 
 
+class RetrofitPreferences(BaseModel):
+    primary_goal: Optional[str] = None
+    roof_type: Optional[str] = None
+    roof_replacement_status: Optional[str] = None
+    ev_owner_or_planning: Optional[str] = None
+    planned_electric_additions: Optional[bool] = None
+
+
 class SolarPotentialInput(BaseModel):
     solar_viable: bool = False
     max_array_panels: Optional[int] = None
@@ -113,6 +127,7 @@ class RetcastInput(BaseModel):
 class RetrofitCalculationRequest(BaseModel):
     property: PropertyProfile
     household: HouseholdProfile = Field(default_factory=HouseholdProfile)
+    preferences: RetrofitPreferences = Field(default_factory=RetrofitPreferences)
     solar: Optional[SolarPotentialInput] = None
     retcast: Optional[RetcastInput] = None
     upgrade_interests: List[str] = Field(default_factory=list)
@@ -161,8 +176,89 @@ class RetrofitCalculationResponse(BaseModel):
     llm_context: LlmContext
 
 
+class BuildingUtilityHistoryInput(BaseModel):
+    fuel_type: str
+    months: int
+    total_usage: Optional[float] = None
+    total_cost: Optional[float] = None
+    usage_unit: Optional[str] = None
+    meter_scope: Optional[str] = None
+    utility: Optional[str] = None
+
+
+class BuildingRetrofitRequest(BaseModel):
+    address: str
+    mode: str = "building"
+    role: Optional[str] = None
+    scope: Optional[str] = None
+    building_type: Optional[str] = None
+    gross_floor_area: Optional[int] = None
+    units: Optional[int] = None
+    occupancy: Optional[int] = None
+    year_built: Optional[int] = None
+    owner_occupied: Optional[bool] = None
+    utility: Optional[str] = None
+    electric_utility: Optional[str] = None
+    gas_utility: Optional[str] = None
+    utility_structure: Optional[str] = None
+    electric_metering: Optional[str] = None
+    gas_metering: Optional[str] = None
+    electric_bill_responsibility: Optional[str] = None
+    gas_bill_responsibility: Optional[str] = None
+    portfolio_manager_property_id: Optional[str] = None
+    utility_history: List[BuildingUtilityHistoryInput] = Field(default_factory=list)
+    existing_systems: List[str] = Field(default_factory=list)
+    hvac_system_type: Optional[str] = None
+    domestic_hot_water_type: Optional[str] = None
+    roof_control: Optional[str] = None
+    primary_goal: Optional[str] = None
+    planning_horizon: Optional[str] = None
+    capex_budget_range: Optional[str] = None
+
+
+class BuildingRecommendation(BaseModel):
+    package_key: str
+    name: str
+    description: str
+    priority: int
+    data_required: List[str] = Field(default_factory=list)
+    confidence: str = "low"
+    estimated_cost_range: Optional[str] = None
+    estimated_annual_savings_range: Optional[str] = None
+    owner_tenant_split_note: Optional[str] = None
+
+
+class BuildingBenchmark(BaseModel):
+    annual_electric_kwh: Optional[float] = None
+    annual_gas_therms: Optional[float] = None
+    annual_utility_cost: Optional[float] = None
+    site_eui_kbtu_per_sq_ft: Optional[float] = None
+    utility_cost_per_sq_ft: Optional[float] = None
+    confidence: str = "low"
+    notes: List[str] = Field(default_factory=list)
+
+
+class BuildingRetrofitResponse(BaseModel):
+    mode: str
+    address: str
+    building_type: Optional[str] = None
+    gross_floor_area: Optional[int] = None
+    units: Optional[int] = None
+    missing_inputs: List[str]
+    benchmarking_ready: bool
+    data_completeness_score: int = 0
+    benchmark: Optional[BuildingBenchmark] = None
+    recommendations: List[BuildingRecommendation]
+    eligible_incentives: List[IncentiveMatch] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    assumptions: AnalysisAssumptions
+
+
 class RetrofitSummaryResponse(BaseModel):
-    calculation: RetrofitCalculationResponse
+    mode: str = "homeowner"
+    calculation: Optional[RetrofitCalculationResponse] = None
+    building_analysis: Optional[BuildingRetrofitResponse] = None
     llm_summary: str
     summary_source: str
     model: Optional[str] = None

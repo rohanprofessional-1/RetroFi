@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { generatePlan } from './api';
 
 const FIELDS = [
-  { key: 'monthly_electricity_bill', label: 'Average monthly electricity bill', type: 'number', unit: '$', placeholder: 'e.g. 120', required: true, section: 'Monthly Costs' },
-  { key: 'monthly_gas_bill', label: 'Average monthly gas bill', type: 'number', unit: '$', placeholder: 'e.g. 60', required: true, section: 'Monthly Costs' },
+  { key: 'monthly_electricity_bill', label: 'Average monthly electricity bill', type: 'number', valueType: 'money', unit: '$', placeholder: 'e.g. 120', required: true, section: 'Monthly Costs' },
+  { key: 'monthly_gas_bill', label: 'Average monthly gas bill', type: 'number', valueType: 'money', unit: '$', placeholder: 'e.g. 60', required: true, section: 'Monthly Costs' },
   { key: 'home_ownership_status', label: 'Home ownership', type: 'choice', required: true, section: 'Your Home', options: ['Own', 'Rent / Lease'] },
   { key: 'home_type', label: 'Home type', type: 'choice', required: false, section: 'Your Home', options: ['Single Family', 'Townhouse', 'Condo / Apartment', 'Other'] },
   { key: 'year_built', label: 'Year built', type: 'choice', required: false, section: 'Your Home', options: ['Before 1980', '1980 - 2000', '2001 - 2015', 'After 2015'] },
@@ -20,10 +20,33 @@ const FIELDS = [
 ];
 const SECTION_ORDER = ['Monthly Costs', 'Your Home', 'Energy & Appliances', 'Future Plans'];
 
+const BUILDING_FIELDS = [
+  { key: 'role', label: 'Your role', type: 'choice', required: true, section: 'Role & Scope', options: ['Landlord', 'Property manager', 'Owner-operator', 'Enterprise asset manager'] },
+  { key: 'scope', label: 'What are you evaluating?', type: 'choice', required: true, section: 'Role & Scope', options: ['Single building', 'Portfolio'] },
+  { key: 'building_type', label: 'Building type', type: 'choice', required: true, section: 'Building Basics', options: ['Single-family rental', 'Duplex / Triplex / Quadplex', 'Garden-style multifamily', 'Mid-rise multifamily', 'High-rise multifamily', 'Mixed-use', 'Commercial / Office / Retail'] },
+  { key: 'units', label: 'Number of units', type: 'number', placeholder: 'e.g. 24', required: true, section: 'Building Basics' },
+  { key: 'square_footage', label: 'Gross floor area', type: 'number', placeholder: 'e.g. 24000', required: true, section: 'Building Basics' },
+  { key: 'occupancy', label: 'Occupancy or operating schedule', type: 'number', placeholder: 'e.g. 22 occupied units or 95', required: false, section: 'Building Basics' },
+  { key: 'utility_structure', label: 'Utility / meter structure', type: 'choice', required: true, section: 'Utilities & Meters', options: ['Master-metered whole building', 'Common-area meter plus tenant meters', 'Individually metered units', 'Mixed / unknown'] },
+  { key: 'electric_bill_responsibility', label: 'Who pays electric bills?', type: 'choice', required: true, section: 'Utilities & Meters', options: ['Owner pays all', 'Tenant pays in-unit, owner pays common areas', 'Tenant pays all', 'Mixed / unknown'] },
+  { key: 'gas_bill_responsibility', label: 'Who pays gas or delivered fuel?', type: 'choice', required: false, section: 'Utilities & Meters', options: ['Owner pays all', 'Tenant pays in-unit, owner pays common areas', 'Tenant pays all', 'No gas / all electric', 'Mixed / unknown'] },
+  { key: 'annual_electric_kwh', label: '12-month electric usage', type: 'number', placeholder: 'kWh, if available', required: false, section: 'Utility History' },
+  { key: 'annual_electric_cost', label: '12-month electric cost', type: 'number', valueType: 'money_number', placeholder: 'e.g. 36000', required: false, section: 'Utility History' },
+  { key: 'annual_gas_therms', label: '12-month gas or fuel usage', type: 'number', placeholder: 'therms, if available', required: false, section: 'Utility History' },
+  { key: 'annual_gas_cost', label: '12-month gas or fuel cost', type: 'number', valueType: 'money_number', placeholder: 'e.g. 12000', required: false, section: 'Utility History' },
+  { key: 'hvac_system_type', label: 'Primary HVAC system', type: 'choice', required: true, section: 'Systems', options: ['Central plant', 'Packaged rooftop units', 'Split systems', 'PTAC / PTHP', 'Individual furnaces', 'Heat pumps', 'Unknown'] },
+  { key: 'domestic_hot_water_type', label: 'Domestic hot water system', type: 'choice', required: true, section: 'Systems', options: ['Central gas', 'Central electric', 'In-unit gas', 'In-unit electric', 'Heat pump water heater', 'Unknown'] },
+  { key: 'roof_control', label: 'Roof control', type: 'choice', required: false, section: 'Systems', options: ['Owner controls roof', 'Shared / HOA control', 'Roof replacement planned', 'Structural constraints known', 'Unknown'] },
+  { key: 'primary_goal', label: 'Primary objective', type: 'choice', required: false, section: 'Goals', options: ['Lower operating expenses', 'Improve NOI / asset value', 'Reduce tenant bills', 'Meet climate or compliance goals', 'Improve comfort / complaints', 'Plan capital budget', 'Identify incentives'] },
+  { key: 'planning_horizon', label: 'Planning horizon', type: 'choice', required: false, section: 'Goals', options: ['Immediate', '0-12 months', '1-3 years', '3-5 years'] },
+  { key: 'capex_budget_range', label: 'Capex budget range', type: 'choice', required: false, section: 'Goals', options: ['Under $25k', '$25k-$100k', '$100k-$500k', 'Over $500k', 'Not sure'] },
+];
+const BUILDING_SECTION_ORDER = ['Role & Scope', 'Building Basics', 'Utilities & Meters', 'Utility History', 'Systems', 'Goals'];
+
 function Questionnaire() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { answers: initialAnswers, address } = location.state || {};
+  const { answers: initialAnswers, address, mode = 'homeowner', requestedMode, role, scope } = location.state || {};
   const [formValues, setFormValues] = useState({});
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -34,7 +57,9 @@ function Questionnaire() {
     return null;
   }
 
-  const fieldsToShow = FIELDS.filter(
+  const activeFields = mode === 'homeowner' ? FIELDS : BUILDING_FIELDS;
+  const sectionOrder = mode === 'homeowner' ? SECTION_ORDER : BUILDING_SECTION_ORDER;
+  const fieldsToShow = activeFields.filter(
     (field) => initialAnswers[field.key] === null || initialAnswers[field.key] === undefined,
   );
 
@@ -57,16 +82,22 @@ function Questionnaire() {
       if (!raw) return;
       if (field.type === 'number') {
         const parsed = parseFloat(raw.replace(/[$,]/g, ''));
-        merged[field.key] = `$${parsed.toFixed(0)}`;
+        merged[field.key] = field.valueType === 'money' ? `$${parsed.toFixed(0)}` : parsed;
       } else {
         merged[field.key] = raw;
       }
     });
+    if (mode !== 'homeowner') {
+      merged.mode = requestedMode || mode;
+      merged.role = merged.role || role;
+      merged.scope = merged.scope || scope;
+      merged.utility_history = buildUtilityHistory(merged);
+    }
 
     setSubmitting(true);
     setSubmitError('');
     try {
-      const result = await generatePlan(address, merged);
+      const result = await generatePlan(address, merged, { mode: requestedMode || mode, role: merged.role || role, scope: merged.scope || scope });
       navigate('/dashboard', { state: { result } });
     } catch (err) {
       setSubmitError(err.message || 'Failed to generate plan. Please try again.');
@@ -74,7 +105,7 @@ function Questionnaire() {
     }
   };
 
-  const sections = SECTION_ORDER.map((section) => ({
+  const sections = sectionOrder.map((section) => ({
     name: section,
     fields: fieldsToShow.filter((field) => field.section === section),
   })).filter((section) => section.fields.length > 0);
@@ -93,7 +124,7 @@ function Questionnaire() {
       <div style={{ maxWidth: '760px', margin: '0 auto', padding: '2.5rem 1.5rem 4rem' }}>
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>
-            <span className="text-gradient">Home Energy Profile</span>
+            <span className="text-gradient">{mode === 'homeowner' ? 'Home Energy Profile' : 'Building Energy Profile'}</span>
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{address}</p>
         </div>
@@ -136,7 +167,7 @@ function Questionnaire() {
           )}
 
           <button type="submit" className="btn-primary" disabled={submitting} style={{ width: '100%', padding: '1rem', fontSize: '1rem', opacity: submitting ? 0.7 : 1 }}>
-            {submitting ? 'Generating your plan...' : 'Generate My Retrofit Plan'}
+            {submitting ? 'Generating your plan...' : mode === 'homeowner' ? 'Generate My Retrofit Plan' : 'Generate Building Quick Estimate'}
           </button>
         </form>
       </div>
@@ -161,6 +192,31 @@ function validate(fields, values) {
     }
   });
   return errors;
+}
+
+function buildUtilityHistory(values) {
+  const history = [];
+  if (values.annual_electric_kwh || values.annual_electric_cost) {
+    history.push({
+      fuel_type: 'electric',
+      months: 12,
+      total_usage: values.annual_electric_kwh || null,
+      total_cost: values.annual_electric_cost || null,
+      usage_unit: 'kWh',
+      meter_scope: values.utility_structure || null,
+    });
+  }
+  if (values.annual_gas_therms || values.annual_gas_cost) {
+    history.push({
+      fuel_type: 'gas',
+      months: 12,
+      total_usage: values.annual_gas_therms || null,
+      total_cost: values.annual_gas_cost || null,
+      usage_unit: 'therms',
+      meter_scope: values.utility_structure || null,
+    });
+  }
+  return history;
 }
 
 export default Questionnaire;

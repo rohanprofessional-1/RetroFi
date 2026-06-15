@@ -17,13 +17,13 @@ export async function summarizeRetrofit(dto) {
   return response.json();
 }
 
-export async function lookupProperty(address) {
+export async function lookupProperty(address, context = {}) {
   const response = await fetch(`${API_BASE_URL}/property-lookup`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ address }),
+    body: JSON.stringify({ address, ...context }),
   });
 
   if (!response.ok) {
@@ -34,13 +34,13 @@ export async function lookupProperty(address) {
   return response.json();
 }
 
-export async function generatePlan(address, answers) {
+export async function generatePlan(address, answers, context = {}) {
   const response = await fetch(`${API_BASE_URL}/generate-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ address, answers }),
+    body: JSON.stringify({ address, answers, ...context }),
   });
 
   if (!response.ok) {
