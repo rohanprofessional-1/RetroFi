@@ -1,0 +1,58 @@
+[
+  {
+    "id": "cost-heat-pump-atlanta",
+    "upgrade_key": "heat_pump",
+    "name": "Air Source Heat Pump",
+    "description": "Replace aging gas or electric resistance HVAC with a high-efficiency air source heat pump sized for an Atlanta home.",
+    "cost_low": 9000,
+    "cost_high": 15000,
+    "annual_savings": 800,
+    "carbon_avoided_tons": 2.4,
+    "confidence": "medium",
+    "source": "Internal Atlanta retrofit benchmark",
+    "source_url": "https://www.energy.gov/energysaver/heat-pump-systems",
+    "citation_snippet": "Air source heat pumps can reduce electricity use for heating by roughly 50% compared with electric resistance heating."
+  },
+  {
+    "id": "cost-attic-insulation-atlanta",
+    "upgrade_key": "attic_insulation",
+    "name": "Attic Insulation to R-49",
+    "description": "Bring attic insulation in an older Atlanta home up to a modern target level and reduce heat gain through the roof deck.",
+    "cost_low": 2500,
+    "cost_high": 4500,
+    "annual_savings": 450,
+    "carbon_avoided_tons": 1.1,
+    "confidence": "medium",
+    "source": "Internal Atlanta retrofit benchmark",
+    "source_url": "https://www.energy.gov/energysaver/insulation",
+    "citation_snippet": "Adding insulation in attics, floors, crawl spaces, and accessible basement rim joists is a common way to improve home efficiency."
+  },
+  {
+    "id": "cost-air-sealing-atlanta",
+    "upgrade_key": "air_sealing",
+    "name": "Air Sealing",
+    "description": "Seal attic bypasses, penetrations, and common leakage points before or alongside insulation work.",
+    "cost_low": 900,
+    "cost_high": 2200,
+    "annual_savings": 250,
+    "carbon_avoided_tons": 0.6,
+    "confidence": "medium",
+    "source": "Internal Atlanta retrofit benchmark",
+    "source_url": "https://www.energy.gov/energysaver/air-sealing-your-home",
+    "citation_snippet": "Air sealing reduces drafts and heat loss by closing gaps around penetrations, joints, and other leakage points."
+  },
+  {
+    "id": "cost-heat-pump-water-heater-atlanta",
+    "upgrade_key": "heat_pump_water_heater",
+    "name": "Heat Pump Water Heater",
+    "description": "Replace an aging electric or gas water heater with a high-efficiency heat pump water heater.",
+    "cost_low": 2500,
+    "cost_high": 4200,
+    "annual_savings": 300,
+    "carbon_avoided_tons": 0.7,
+    "confidence": "medium",
+    "source": "Internal Atlanta retrofit benchmark",
+    "source_url": "https://www.energy.gov/energysaver/heat-pump-water-heaters",
+    "citation_snippet": "Heat pump water heaters move heat rather than generating it directly, making them more efficient than standard electric resistance models."
+  }
+]

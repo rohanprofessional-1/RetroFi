@@ -1,0 +1,81 @@
+{
+  "indexed_at": "2026-06-15T14:34:21.736885+00:00",
+  "sources_dir": "/Users/rohannair/Desktop/Shenanigans/retrofi-atl/sources",
+  "collection_count": 47,
+  "files": [
+    {
+      "path": "sources/Energy Efficient Home Improvement Credit _ Internal Revenue Service.html",
+      "sha256": "6463cd5645d37b2358bbe3e4107f0f26b5b0a8e475d444b8ffc61066eef08d54",
+      "parser": "html",
+      "source_type": "irs_html",
+      "title": "Energy Efficient Home Improvement Credit  Copy link Find any service",
+      "document_date": "2023-03-23",
+      "warnings": []
+    },
+    {
+      "path": "sources/Energy Efficient Home Improvement Credit qualified manufacturer requirements _ Internal Revenue Service.html",
+      "sha256": "5da13b11197e0584ace681cdd6a7ff0cbaa06001ff3017c38cbc9074cbfccae9",
+      "parser": "html",
+      "source_type": "irs_html",
+      "title": "Energy Efficient Home Improvement Credit qualified manufacturer requirements  Copy link Find any service",
+      "document_date": "2024-10-23",
+      "warnings": []
+    },
+    {
+      "path": "sources/HEAR DIY Webpage - HEAR-DIY-Pathway.pdf",
+      "sha256": "1a5d35a2ef3795aff51b1dc7a61c6d5031b37529990279a259daa232923a765c",
+      "parser": "pdf",
+      "source_type": "state_rebate_pdf",
+      "title": "HEAR DIY Webpage - HEAR-DIY-Pathway",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/Publication 5886-A (Rev. 1-2024) - p5886a.pdf",
+      "sha256": "e288f8536b00575859f243ca48842fc4bf4a943c143c986922c49208ab2d79bb",
+      "parser": "pdf_garbled",
+      "source_type": "irs_pdf",
+      "title": "Publication 5886-A (Rev. 1-2024) - p5886a",
+      "document_date": "2024-01",
+      "warnings": [
+        "Extracted PDF text appears garbled; OCR or manual review is recommended."
+      ]
+    },
+    {
+      "path": "sources/Publication 5967 (5-2024) - p5967.pdf",
+      "sha256": "ee95b88c422e22dd73de78015d6cf7a1c99709009855c4abeea28c8d6e6aa735",
+      "parser": "pdf_garbled",
+      "source_type": "irs_pdf",
+      "title": "Publication 5967 (5-2024) - p5967",
+      "document_date": "2024-05",
+      "warnings": [
+        "Extracted PDF text appears garbled; OCR or manual review is recommended."
+      ]
+    },
+    {
+      "path": "sources/Residential Clean Energy Credit _ Internal Revenue Service.html",
+      "sha256": "508bed0b84e9b65655be343669f81f7bf1ab9120f5e3061684b18738c9670c4b",
+      "parser": "html",
+      "source_type": "irs_html",
+      "title": "Residential Clean Energy Credit  Copy link Find any service",
+      "document_date": "2023-02-15",
+      "warnings": []
+    },
+    {
+      "path": "sources/heip-sf-preconditions.pdf",
+      "sha256": "615189e2db164ee2e062020f74d4f548a9f7fa450f4c656d3958a1019c2aa490",
+      "parser": "pdf_garbled",
+      "source_type": "utility_rebate_pdf",
+      "title": "heip-sf-preconditions",
+      "document_date": null,
+      "warnings": [
+        "Extracted PDF text appears garbled; OCR or manual review is recommended."
+      ]
+    }
+  ],
+  "counts": {
+    "files_parsed": 7,
+    "chunks_created": 34,
+    "records_indexed": 47
+  }
+}

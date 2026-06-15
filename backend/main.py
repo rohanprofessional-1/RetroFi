@@ -1,6 +1,13 @@
-from fastapi import FastAPI, HTTPException
-from sqlmodel import SQLModel, Session, create_engine
-from models import Property, RetrofitPlan, Upgrade, Incentive
+from fastapi import FastAPI
+from schemas import IncentiveAnalysisRequest, IncentiveAnalysisResponse
+from services.retrofit_analyzer import analyze_retrofit_incentives
+
+try:
+    from sqlmodel import SQLModel, create_engine
+    import models  # Registers SQLModel tables for metadata creation.
+except ModuleNotFoundError:
+    SQLModel = None
+    create_engine = None
 
 app = FastAPI(title="RetroFi ATL API", description="AI-powered retrofit planner API")
 
@@ -9,15 +16,20 @@ app = FastAPI(title="RetroFi ATL API", description="AI-powered retrofit planner 
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
-engine = create_engine(sqlite_url, echo=True)
+engine = create_engine(sqlite_url, echo=True) if create_engine else None
 
 @app.on_event("startup")
 def on_startup():
-    SQLModel.metadata.create_all(engine)
+    if SQLModel and engine:
+        SQLModel.metadata.create_all(engine)
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the RetroFi ATL API"}
+
+@app.post("/analyze-incentives/", response_model=IncentiveAnalysisResponse)
+def analyze_incentives(request: IncentiveAnalysisRequest):
+    return analyze_retrofit_incentives(request)
 
 @app.post("/generate-plan/")
 def generate_plan(address: str):

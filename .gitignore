@@ -60,3 +60,4 @@ venv.bak/
 *.db
 *.sqlite3
 database.db
+backend/data/chroma/
