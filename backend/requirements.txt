@@ -4,3 +4,5 @@ sqlmodel
 chromadb
 beautifulsoup4
 pypdf
+httpx
+python-dotenv

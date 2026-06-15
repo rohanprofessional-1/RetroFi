@@ -1,15 +1,122 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getGoogleMapsConfig, lookupProperty } from './api';
+
+const GOOGLE_MAPS_SCRIPT_ID = 'google-maps-places-script';
+let googlePlacesScriptPromise;
+
+function loadGooglePlacesScript(apiKey) {
+  if (!apiKey) {
+    return Promise.reject(new Error('Missing Google Maps API key.'));
+  }
+
+  if (window.google?.maps?.places) {
+    return Promise.resolve();
+  }
+
+  if (googlePlacesScriptPromise) {
+    return googlePlacesScriptPromise;
+  }
+
+  googlePlacesScriptPromise = new Promise((resolve, reject) => {
+    const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID);
+    if (existingScript) {
+      existingScript.addEventListener('load', resolve, { once: true });
+      existingScript.addEventListener('error', reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = GOOGLE_MAPS_SCRIPT_ID;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+  return googlePlacesScriptPromise;
+}
+
+function AddressAutocomplete({ value, onChange, disabled }) {
+  const inputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let placeChangedListener;
+
+    getGoogleMapsConfig()
+      .then(({ api_key: apiKey }) => loadGooglePlacesScript(apiKey))
+      .then(() => {
+        if (!isMounted || !inputRef.current || autocompleteRef.current) {
+          return;
+        }
+
+        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+          componentRestrictions: { country: 'us' },
+          fields: ['formatted_address', 'geometry', 'place_id'],
+          types: ['address'],
+        });
+
+        placeChangedListener = autocompleteRef.current.addListener('place_changed', () => {
+          const place = autocompleteRef.current.getPlace();
+          const formattedAddress = place.formatted_address || inputRef.current.value;
+          if (formattedAddress) {
+            onChange(formattedAddress);
+          }
+        });
+      })
+      .catch(() => {
+        // Keep manual address entry available if Places cannot load.
+      });
+
+    return () => {
+      isMounted = false;
+      if (placeChangedListener) {
+        window.google?.maps?.event?.removeListener(placeChangedListener);
+      }
+    };
+  }, [onChange]);
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      className="input-premium"
+      placeholder="Enter your address (e.g. 123 Peachtree St NE, Atlanta, GA)"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      autoComplete="street-address"
+      disabled={disabled}
+      required
+    />
+  );
+}
 
 function LandingPage() {
   const [address, setAddress] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (address.trim()) {
-      // Pass the address to the dashboard route
-      navigate(`/dashboard?address=${encodeURIComponent(address)}`);
+    const trimmed = address.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const { pre_filled, meta } = await lookupProperty(trimmed);
+      navigate('/verify', { state: { pre_filled, meta, address: trimmed } });
+    } catch (err) {
+      setError(err.message || 'Could not find that address. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,16 +139,14 @@ function LandingPage() {
         </p>
 
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-          <input 
-            type="text" 
-            className="input-premium"
-            placeholder="Enter your address (e.g. 123 Peachtree St)"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            required
-          />
-          <button type="submit" className="btn-primary" style={{ padding: '1rem', fontSize: '1.1rem' }}>
-            Get Retrofit Plan
+          <AddressAutocomplete value={address} onChange={setAddress} disabled={loading} />
+          {error && (
+            <p style={{ color: '#f87171', fontSize: '0.9rem', textAlign: 'left', margin: 0 }}>
+              {error}
+            </p>
+          )}
+          <button type="submit" className="btn-primary" style={{ padding: '1rem', fontSize: '1.1rem', opacity: loading ? 0.7 : 1 }} disabled={loading}>
+            {loading ? 'Looking up your property...' : 'Get Retrofit Plan'}
           </button>
         </form>
       </div>

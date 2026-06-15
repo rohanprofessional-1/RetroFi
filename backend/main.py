@@ -1,5 +1,10 @@
-from fastapi import FastAPI
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from schemas import (
     IncentiveAnalysisRequest,
     IncentiveAnalysisResponse,
@@ -8,8 +13,17 @@ from schemas import (
     RetrofitSummaryResponse,
 )
 from services.llm_summary import summarize_retrofit_calculation
+from services.property_data import get_property_and_solar_data
+from services.questionnaire import get_next_question
+from services.rentcast_api import get_pre_filled_answers
 from services.retrofit_analyzer import analyze_retrofit_incentives
 from services.retrofit_calculator import calculate_retrofit_options
+from services.retrofit_request_builder import build_retrofit_calculation_request
+
+
+BACKEND_ROOT = Path(__file__).resolve().parent
+load_dotenv(BACKEND_ROOT.parent / ".env")
+load_dotenv(BACKEND_ROOT / ".env")
 
 try:
     from sqlmodel import SQLModel, create_engine
@@ -22,11 +36,24 @@ app = FastAPI(title="RetroFi ATL API", description="AI-powered retrofit planner 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class PropertyLookupRequest(BaseModel):
+    address: str
+
+
+class QuestionnaireNextRequest(BaseModel):
+    answers: dict
+
+
+class GeneratePlanRequest(BaseModel):
+    address: str
+    answers: dict
 
 # Connect to a local SQLite database for boilerplate/development for now,
 # but can easily be swapped for Postgres later as per the stack requirements.
@@ -44,6 +71,14 @@ def on_startup():
 def read_root():
     return {"message": "Welcome to the RetroFi ATL API"}
 
+
+@app.get("/config/google-maps")
+def google_maps_config():
+    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("VITE_GOOGLE_API_KEY") or ""
+    if not api_key:
+        raise HTTPException(status_code=404, detail="Google Maps API key is not configured")
+    return {"api_key": api_key}
+
 @app.post("/analyze-incentives/", response_model=IncentiveAnalysisResponse)
 def analyze_incentives(request: IncentiveAnalysisRequest):
     return analyze_retrofit_incentives(request)
@@ -57,20 +92,58 @@ def summarize_retrofit(request: RetrofitCalculationRequest):
     calculation = calculate_retrofit_options(request)
     return summarize_retrofit_calculation(calculation)
 
-@app.post("/generate-plan/")
-def generate_plan(address: str):
-    # Placeholder for the main generation logic:
-    # 1. Fetch Property Data (Zillow/ATTOM)
-    # 2. Fetch Solar Potential (Google Solar API)
-    # 3. Fetch Incentives (Rewiring America)
-    # 4. Generate AI Plan (OpenAI/Gemini)
-    
-    return {
-        "status": "success",
-        "message": f"Plan generated for {address}",
-        "plan": {
-            "address": address,
-            "estimated_savings": 1200,
-            "upgrades": ["Heat Pump", "Insulation"]
-        }
-    }
+
+@app.post("/property-lookup")
+def property_lookup(request: PropertyLookupRequest):
+    try:
+        pre_filled = get_pre_filled_answers(request.address)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"RentCast API error: {exc}") from exc
+
+    meta = pre_filled.pop("_property_meta", {})
+    return {"pre_filled": pre_filled, "meta": meta}
+
+
+@app.post("/questionnaire/next")
+def questionnaire_next(request: QuestionnaireNextRequest):
+    return get_next_question(request.answers)
+
+
+@app.post("/generate-plan", response_model=RetrofitSummaryResponse)
+async def generate_plan(request: GeneratePlanRequest):
+    monthly_bill = _money_to_float(request.answers.get("monthly_electricity_bill"))
+    try:
+        combined = await get_property_and_solar_data(request.address, monthly_bill)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Property or solar API error: {exc}") from exc
+
+    solar_data = combined.get("_solar_data")
+    answers = {**combined, **request.answers}
+    if "_property_meta" not in answers and combined.get("_property_meta"):
+        answers["_property_meta"] = combined["_property_meta"]
+
+    calculation_request = build_retrofit_calculation_request(
+        address=request.address,
+        answers=answers,
+        solar_data=solar_data,
+    )
+    calculation = calculate_retrofit_options(calculation_request)
+    return summarize_retrofit_calculation(calculation)
+
+
+@app.post("/generate-plan/", response_model=RetrofitSummaryResponse)
+async def generate_plan_slash(request: GeneratePlanRequest):
+    return await generate_plan(request)
+
+
+def _money_to_float(value) -> float:
+    if value is None or value == "":
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    cleaned = "".join(char for char in str(value) if char.isdigit() or char == ".")
+    return float(cleaned) if cleaned else 0.0

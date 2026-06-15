@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Optional, Tuple
@@ -112,6 +113,8 @@ def summarize_retrofit_calculation(
     summary, source = _call_anthropic(prompt=prompt, api_key=api_key, model=model)
     if source == "fallback":
         summary = _fallback_summary(calculation)
+    else:
+        summary = _clean_summary_text(summary)
 
     return RetrofitSummaryResponse(
         calculation=calculation,
@@ -135,9 +138,14 @@ def build_summary_prompt(calculation: RetrofitCalculationResponse) -> str:
         "The deterministic engine is the source of truth. Do not recalculate, alter, "
         "or invent dollar amounts, carbon values, payback periods, incentives, rankings, "
         "or eligibility facts.\n"
-        "Write a concise summary for an Atlanta homeowner. Explain what to do first, "
-        "why the ranking makes sense, what assumptions matter, and what missing data "
-        "would improve accuracy. Use only the provided citations and facts.\n\n"
+        "Write a concise plain-English recommendation for an Atlanta homeowner.\n"
+        "Format rules:\n"
+        "- No Markdown, headings, bullets, numbered lists, hashtags, or bold markers.\n"
+        "- Keep it to 2 short paragraphs, 120 words maximum.\n"
+        "- Start with the single best first action and why.\n"
+        "- Mention only the most important cost, savings, incentive, and payback facts.\n"
+        "- End with one practical next step.\n"
+        "Use only the provided citations and facts.\n\n"
         f"DETERMINISTIC_CONTEXT_JSON:\n{json.dumps(payload, indent=2)}"
     )
 
@@ -145,7 +153,7 @@ def build_summary_prompt(calculation: RetrofitCalculationResponse) -> str:
 def _call_anthropic(prompt: str, api_key: str, model: str) -> Tuple[str, str]:
     body = {
         "model": model,
-        "max_tokens": 700,
+        "max_tokens": 240,
         "temperature": 0.2,
         "messages": [{"role": "user", "content": prompt}],
     }
@@ -229,6 +237,21 @@ def _call_anthropic(prompt: str, api_key: str, model: str) -> Tuple[str, str]:
     )
     # endregion
     return (summary, "anthropic") if summary else ("", "fallback")
+
+
+def _clean_summary_text(summary: str) -> str:
+    lines = []
+    for line in summary.splitlines():
+        cleaned = re.sub(r"^\s{0,3}#{1,6}\s*", "", line)
+        cleaned = re.sub(r"^\s*[-*]\s+", "", cleaned)
+        cleaned = re.sub(r"^\s*\d+\.\s+", "", cleaned)
+        lines.append(cleaned.strip())
+
+    cleaned = "\n".join(lines)
+    cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
+    cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def _fallback_summary(calculation: RetrofitCalculationResponse) -> str:

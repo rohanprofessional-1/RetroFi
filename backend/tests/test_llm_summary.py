@@ -14,7 +14,11 @@ sys.path.insert(0, str(BACKEND_ROOT))
 from main import app
 from schemas import RetrofitCalculationRequest
 from services.incentive_index import IncentiveIndex
-from services.llm_summary import build_summary_prompt, summarize_retrofit_calculation
+from services.llm_summary import (
+    _clean_summary_text,
+    build_summary_prompt,
+    summarize_retrofit_calculation,
+)
 from services.retrofit_calculator import calculate_retrofit_options
 
 
@@ -43,6 +47,20 @@ class LlmSummaryTests(unittest.TestCase):
         self.assertIn("deterministic engine is the source of truth", prompt)
         self.assertIn("ranked_options", prompt)
         self.assertIn("citations", prompt)
+        self.assertIn("No Markdown", prompt)
+        self.assertIn("120 words maximum", prompt)
+
+    def test_summary_cleanup_removes_markdown_markers(self):
+        summary = _clean_summary_text(
+            "# What To Do First\n\n"
+            "**Start with Rooftop Solar PV.** It has the best savings.\n"
+            "1. **Next step:** confirm the incentive paperwork."
+        )
+
+        self.assertNotIn("#", summary)
+        self.assertNotIn("**", summary)
+        self.assertIn("Start with Rooftop Solar PV.", summary)
+        self.assertIn("Next step: confirm the incentive paperwork.", summary)
 
     def test_summary_endpoint_returns_calculation_and_summary(self):
         client = TestClient(app)

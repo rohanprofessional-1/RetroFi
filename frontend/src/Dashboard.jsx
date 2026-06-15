@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { summarizeRetrofit } from './api';
-import { mockRetrofitDto } from './mockRetrofitDto';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -12,53 +10,21 @@ const currency = new Intl.NumberFormat('en-US', {
 function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-
-  const queryParams = new URLSearchParams(location.search);
-  const address = queryParams.get('address');
-  const analysisDto = useMemo(() => ({
-    ...mockRetrofitDto,
-    property: {
-      ...mockRetrofitDto.property,
-      address: address || mockRetrofitDto.property.address,
-    },
-  }), [address]);
-  const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
+  const result = location.state?.result;
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function runAnalysis() {
-      setError('');
-      setLoading(true);
-      try {
-        const response = await summarizeRetrofit(analysisDto);
-        if (!cancelled) {
-          setResult(response);
-        }
-      } catch {
-        if (!cancelled) {
-          setError('We could not generate your roadmap yet. Please make sure the backend is running and try again.');
-          setResult(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+    if (!result) {
+      navigate('/');
     }
+  }, [navigate, result]);
 
-    runAnalysis();
+  if (!result) {
+    return null;
+  }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [analysisDto]);
-
-  const calculation = result?.calculation;
-  const totals = calculation?.totals;
-  const topOptions = calculation?.ranked_options?.slice(0, 4) || [];
+  const calculation = result.calculation;
+  const totals = calculation.totals;
+  const topOptions = calculation.ranked_options?.slice(0, 4) || [];
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
@@ -72,25 +38,9 @@ function Dashboard() {
       <div style={{ marginBottom: '2rem' }}>
         <h1>Your Home Retrofit Roadmap</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', maxWidth: '850px', marginTop: '1rem' }}>
-          We analyzed {analysisDto.property.address} and ranked the upgrades that can lower bills, reduce carbon, and take advantage of available incentives.
+          We analyzed {calculation.address} and ranked the upgrades that can lower bills, reduce carbon, and take advantage of available incentives.
         </p>
       </div>
-
-      {loading && (
-        <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', textAlign: 'center' }}>
-          <h3 className="text-gradient">Building your roadmap...</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Checking retrofit costs, incentives, solar potential, savings, and carbon impact.
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid #fca5a5' }}>
-          <h3>We could not load your plan</h3>
-          <p style={{ color: '#fca5a5', marginTop: '0.5rem' }}>{error}</p>
-        </div>
-      )}
 
       {result && (
         <>
@@ -124,51 +74,33 @@ function Dashboard() {
             </div>
           </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: '2rem' }}>
-            <div>
-              <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem' }}>
-                Upgrade Details
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {calculation.ranked_options.map((option) => (
-                  <div key={option.upgrade_key} className="glass-panel" style={{ padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <div>
-                        <h4>#{option.rank} {option.name}</h4>
-                        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>{option.description}</p>
-                      </div>
-                      <strong style={{ color: 'var(--accent-primary)' }}>
-                        {option.payback_years ?? 'N/A'} yrs
-                      </strong>
+          <section>
+            <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem' }}>
+              Upgrade Details
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {calculation.ranked_options.map((option) => (
+                <div key={option.upgrade_key} className="glass-panel" style={{ padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                    <div>
+                      <h4>#{option.rank} {option.name}</h4>
+                      <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>{option.description}</p>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginTop: '1rem', color: 'var(--text-secondary)' }}>
-                      <span>Gross: {currency.format(option.gross_cost)}</span>
-                      <span>Incentives: {currency.format(option.incentive_total)}</span>
-                      <span>Net: {currency.format(option.net_cost)}</span>
-                      <span>Save: {currency.format(option.annual_savings)}/yr</span>
-                    </div>
-                    <ActionList option={option} />
+                    <strong style={{ color: 'var(--accent-primary)' }}>
+                      {option.payback_years ?? 'N/A'} yrs
+                    </strong>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem' }}>
-                Citations
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {calculation.citations.slice(0, 8).map((citation) => (
-                  <div key={citation.id} className="glass-panel" style={{ padding: '1rem' }}>
-                    <h4 style={{ fontSize: '0.95rem' }}>{citation.title}</h4>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                      {citation.snippet}
-                    </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginTop: '1rem', color: 'var(--text-secondary)' }}>
+                    <span>Gross: {currency.format(option.gross_cost)}</span>
+                    <span>Incentives: {currency.format(option.incentive_total)}</span>
+                    <span>Net: {currency.format(option.net_cost)}</span>
+                    <span>Save: {currency.format(option.annual_savings)}/yr</span>
                   </div>
-                ))}
-              </div>
+                  <ActionList option={option} />
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
         </>
       )}
     </div>

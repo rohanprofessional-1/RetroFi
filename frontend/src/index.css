@@ -114,6 +114,36 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
 
+.pac-container {
+  z-index: 10000;
+  margin-top: 0.35rem;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+
+.pac-item {
+  padding: 0.8rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.pac-item:first-child {
+  border-top: 0;
+}
+
+.pac-item:hover,
+.pac-item-selected {
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.pac-item-query {
+  color: var(--text-primary);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }

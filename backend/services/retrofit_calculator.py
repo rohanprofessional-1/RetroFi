@@ -109,6 +109,7 @@ def _calculate_efficiency_option(
         incentive_documents=incentive_documents,
         citations_by_id=citations_by_id,
     )
+    matched_incentives = _dedupe_incentives(matched_incentives)
     selected_incentives = _select_stackable_incentives(matched_incentives)
     incentive_total = sum(incentive.amount for incentive in selected_incentives)
     net_cost = max(gross_cost - incentive_total, 0)
@@ -172,6 +173,7 @@ def _calculate_solar_option(
         incentive_documents=incentive_documents,
         citations_by_id=citations_by_id,
     )
+    matched_incentives = _dedupe_incentives(matched_incentives)
     selected_incentives = _select_stackable_incentives(matched_incentives)
     incentive_total = sum(incentive.amount for incentive in selected_incentives)
     net_cost = max(gross_cost - incentive_total, 0)
@@ -350,6 +352,20 @@ def _select_stackable_incentives(incentives: List[IncentiveMatch]) -> List[Incen
     if best_non_stackable.amount > stackable_total:
         return [best_non_stackable]
     return stackable
+
+
+def _dedupe_incentives(incentives: List[IncentiveMatch]) -> List[IncentiveMatch]:
+    deduped: Dict[Tuple[str, str, str, float, Tuple[str, ...]], IncentiveMatch] = {}
+    for incentive in incentives:
+        key = (
+            incentive.name,
+            incentive.source,
+            incentive.incentive_type,
+            incentive.amount,
+            tuple(sorted(incentive.eligible_upgrades)),
+        )
+        deduped.setdefault(key, incentive)
+    return list(deduped.values())
 
 
 def _eligibility_notes(document: Dict) -> str:

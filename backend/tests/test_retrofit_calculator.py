@@ -52,6 +52,20 @@ class RetrofitCalculatorTests(unittest.TestCase):
         self.assertGreater(solar.carbon_avoided_tons, 0)
         self.assertIn("citation-google-solar-input", solar.citations)
 
+    def test_duplicate_incentive_programs_are_collapsed(self):
+        request = RetrofitCalculationRequest(**_mock_payload())
+        response = calculate_retrofit_options(request, index=_DuplicateSolarIncentiveIndex())
+        solar = next(option for option in response.ranked_options if option.upgrade_key == "solar")
+
+        duplicate_display_rows = [
+            incentive
+            for incentive in solar.matched_incentives
+            if incentive.name == "Residential Clean Energy Credit" and incentive.amount == 6480
+        ]
+
+        self.assertEqual(len(duplicate_display_rows), 1)
+        self.assertEqual(solar.incentive_total, 6480)
+
     def test_retcast_carbon_math_is_used_for_efficiency_options(self):
         payload = _mock_payload()
         payload["upgrade_interests"] = ["attic insulation"]
@@ -83,6 +97,38 @@ def _dump(model):
     if hasattr(model, "model_dump"):
         return model.model_dump()
     return model.dict()
+
+
+class _DuplicateSolarIncentiveIndex:
+    def search_costs(self, _request):
+        return []
+
+    def search_incentives(self, _request, limit=12):
+        return [
+            _residential_clean_energy_document("irs-25d-solar-source-chunk-1"),
+            _residential_clean_energy_document("irs-25d-solar-source-chunk-2"),
+        ][:limit]
+
+
+def _residential_clean_energy_document(document_id):
+    return {
+        "id": document_id,
+        "name": "Residential Clean Energy Credit",
+        "source": "Internal Revenue Service",
+        "source_url": "https://www.irs.gov/credits-deductions/residential-clean-energy-credit",
+        "incentive_type": "Tax Credit",
+        "eligible_upgrades": ["solar"],
+        "amount_rule": {
+            "type": "percentage_cap",
+            "percent": 0.3,
+            "cap": 0,
+        },
+        "amount_description": "30% of eligible costs",
+        "eligibility": "Existing homes may qualify for the residential clean energy credit.",
+        "eligibility_status": "likely_eligible",
+        "stackable": True,
+        "citation_snippet": "The Residential Clean Energy Credit equals 30% of qualified solar costs.",
+    }
 
 
 if __name__ == "__main__":

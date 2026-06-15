@@ -16,3 +16,48 @@ export async function summarizeRetrofit(dto) {
 
   return response.json();
 }
+
+export async function lookupProperty(address) {
+  const response = await fetch(`${API_BASE_URL}/property-lookup`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ address }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function generatePlan(address, answers) {
+  const response = await fetch(`${API_BASE_URL}/generate-plan`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ address, answers }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getGoogleMapsConfig() {
+  const response = await fetch(`${API_BASE_URL}/config/google-maps`);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
