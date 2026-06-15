@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { fetchSolarActionSteps } from './api';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -13,6 +14,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const result = location.state?.result;
   const [selectedOption, setSelectedOption] = useState(null);
+  const [solarSteps, setSolarSteps] = useState({ loading: true, steps: [], installers: [], error: false });
 
   useEffect(() => {
     if (!result) navigate('/');
@@ -24,10 +26,30 @@ function Dashboard() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Fetch solar steps once on mount — cached in Dashboard state so modal re-opens don't re-fetch
+  useEffect(() => {
+    if (!result?.solar_data) {
+      setSolarSteps({ loading: false, steps: [], installers: [], error: false });
+      return;
+    }
+    const solarOption = result.calculation.ranked_options?.find((o) => o.upgrade_key === 'solar');
+    if (!solarOption) {
+      setSolarSteps({ loading: false, steps: [], installers: [], error: false });
+      return;
+    }
+    const matchedIncentives = solarOption.matched_incentives.map((inc) => ({
+      name: inc.name,
+      amount: inc.amount,
+      amount_description: inc.amount_description,
+    }));
+    fetchSolarActionSteps(result.calculation.address, result.solar_data, matchedIncentives)
+      .then((data) => setSolarSteps({ loading: false, steps: data.steps || [], installers: data.nearby_installers || [], error: false }))
+      .catch(() => setSolarSteps({ loading: false, steps: [], installers: [], error: true }));
+  }, []);
+
   if (!result) return null;
 
   const calculation = result.calculation;
-  const totals = calculation.totals;
   const allOptions = calculation.ranked_options || [];
 
   return (
@@ -71,7 +93,6 @@ function Dashboard() {
         </p>
       </div>
 
-
       {/* Step cards — click to open modal */}
       <section style={{ marginBottom: '3rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
@@ -83,7 +104,11 @@ function Dashboard() {
 
       {/* Modal */}
       {selectedOption && (
-        <UpgradeModal option={selectedOption} onClose={() => setSelectedOption(null)} />
+        <UpgradeModal
+          option={selectedOption}
+          onClose={() => setSelectedOption(null)}
+          solarSteps={solarSteps}
+        />
       )}
     </div>
   );
@@ -94,12 +119,7 @@ function StepCard({ option, onClick }) {
     <div
       className="glass-panel"
       onClick={onClick}
-      style={{
-        padding: '1.25rem',
-        borderTop: '4px solid var(--accent-primary)',
-        cursor: 'pointer',
-        userSelect: 'none',
-      }}
+      style={{ padding: '1.25rem', borderTop: '4px solid var(--accent-primary)', cursor: 'pointer', userSelect: 'none' }}
     >
       <span style={{ color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.05em' }}>
         STEP {option.rank}
@@ -110,15 +130,14 @@ function StepCard({ option, onClick }) {
         <span>Saves: <strong style={{ color: 'var(--success)' }}>{currency.format(option.annual_savings)}/yr</strong></span>
         <span>Payback: <strong style={{ color: 'var(--text-primary)' }}>{option.payback_years ?? 'N/A'} years</strong></span>
       </div>
-      <span style={{ fontSize: '0.78rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
-        View details →
-      </span>
+      <span style={{ fontSize: '0.78rem', color: 'var(--accent-primary)', fontWeight: 600 }}>View details →</span>
     </div>
   );
 }
 
-function UpgradeModal({ option, onClose }) {
+function UpgradeModal({ option, onClose, solarSteps }) {
   const topIncentives = option.matched_incentives?.slice(0, 3) || [];
+  const isSolar = option.upgrade_key === 'solar';
 
   return createPortal(
     <div
@@ -139,7 +158,7 @@ function UpgradeModal({ option, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="glass-panel"
         style={{
-          maxWidth: '620px',
+          maxWidth: '640px',
           width: '100%',
           maxHeight: '85vh',
           overflowY: 'auto',
@@ -186,12 +205,7 @@ function UpgradeModal({ option, onClose }) {
         </p>
 
         {/* Financials */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '0.75rem',
-          marginBottom: '1.5rem',
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
           {[
             { label: 'Net Cost', value: currency.format(option.net_cost), color: 'var(--text-primary)' },
             { label: 'Incentives', value: currency.format(option.incentive_total), color: 'var(--success)' },
@@ -206,17 +220,23 @@ function UpgradeModal({ option, onClose }) {
         </div>
 
         {/* Next steps */}
-        <div style={{ marginBottom: topIncentives.length > 0 ? '1.5rem' : 0 }}>
-          <h4 style={{ marginBottom: '0.6rem' }}>Simple Next Steps</h4>
-          <ol style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
-            <li>Ask a qualified contractor for a quote for {option.name.toLowerCase()}.</li>
-            <li>Confirm the equipment meets the incentive requirements before signing.</li>
-            <li>Keep receipts, model numbers, and photos for rebate or tax credit paperwork.</li>
-          </ol>
+        <div style={{ marginBottom: '1.5rem' }}>
+          {isSolar
+            ? <SolarActionList solarSteps={solarSteps} />
+            : (
+              <>
+                <h4 style={{ marginBottom: '0.75rem' }}>Next Steps</h4>
+                <ol style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
+                  <li>Ask a qualified contractor for a quote for {option.name.toLowerCase()}.</li>
+                  <li>Confirm the equipment meets the incentive requirements before signing.</li>
+                  <li>Keep receipts, model numbers, and photos for rebate or tax credit paperwork.</li>
+                </ol>
+              </>
+            )}
         </div>
 
-        {/* Incentives */}
-        {topIncentives.length > 0 && (
+        {/* Incentives — shown for non-solar (solar steps include incentive guidance inline) */}
+        {!isSolar && topIncentives.length > 0 && (
           <div>
             <h4 style={{ marginBottom: '0.6rem' }}>Likely Incentives to Check</h4>
             <ul style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
@@ -231,6 +251,143 @@ function UpgradeModal({ option, onClose }) {
       </div>
     </div>,
     document.body
+  );
+}
+
+function SolarActionList({ solarSteps }) {
+  const { loading, steps, installers, error } = solarSteps;
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+        <h4 style={{ marginBottom: '0.25rem' }}>Your Personalized Next Steps</h4>
+        {[...Array(6)].map((_, i) => (
+          <div key={i} style={{
+            height: '72px',
+            borderRadius: '10px',
+            background: 'rgba(34,197,94,0.05)',
+            border: '1px solid rgba(34,197,94,0.1)',
+            animation: 'pulse 1.5s ease-in-out infinite',
+            opacity: 1 - i * 0.1,
+          }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (error || steps.length === 0) {
+    return (
+      <>
+        <h4 style={{ marginBottom: '0.75rem' }}>Next Steps</h4>
+        <ol style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
+          <li>Ask a qualified contractor for a quote for rooftop solar PV.</li>
+          <li>Confirm the equipment meets the incentive requirements before signing.</li>
+          <li>Keep receipts, model numbers, and photos for rebate or tax credit paperwork.</li>
+        </ol>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h4 style={{ marginBottom: '0.75rem' }}>Your Personalized Next Steps</h4>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+        {steps.map((step, i) => (
+          <div
+            key={i}
+            style={{
+              background: 'rgba(34,197,94,0.05)',
+              border: '1px solid rgba(34,197,94,0.15)',
+              borderRadius: '10px',
+              padding: '0.875rem 1rem',
+            }}
+          >
+            {/* Title row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+              <span style={{
+                background: 'rgba(34,197,94,0.15)',
+                color: 'var(--accent-primary)',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                borderRadius: '50%',
+                minWidth: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {i + 1}
+              </span>
+              <p style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.93rem' }}>
+                {step.title}
+              </p>
+            </div>
+            {/* Summary */}
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.5rem', paddingLeft: '2.1rem', fontStyle: 'italic' }}>
+              {step.summary}
+            </p>
+            {/* Bullets */}
+            <ul style={{ paddingLeft: '2.1rem', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              {(step.bullets || []).map((bullet, j) => (
+                <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
+                  <span style={{ color: 'var(--accent-primary)', fontWeight: 700, flexShrink: 0, marginTop: '0.05rem' }}>›</span>
+                  {bullet}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {installers.length > 0 && (
+        <div style={{ marginTop: '1.25rem' }}>
+          <h4 style={{ marginBottom: '0.75rem' }}>Nearby Solar Installers</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {installers.map((ins) => (
+              <a
+                key={ins.place_id}
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ins.name)}&query_place_id=${ins.place_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  background: 'rgba(34,197,94,0.05)',
+                  border: '1px solid rgba(34,197,94,0.15)',
+                  borderRadius: '8px',
+                  padding: '0.6rem 0.875rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s ease, background 0.15s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'rgba(34,197,94,0.09)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.15)'; e.currentTarget.style.background = 'rgba(34,197,94,0.05)'; }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--accent-primary)', fontSize: '0.9rem' }}>{ins.name}</span>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.7 }}>
+                      <path d="M2.5 1.5H10.5V9.5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M10.5 1.5L1.5 10.5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                    <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{ins.rating}★</span>
+                    {' '}({ins.ratings_count} reviews) · {ins.vicinity}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 600, whiteSpace: 'nowrap', opacity: 0.8 }}>
+                  View on Maps →
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
