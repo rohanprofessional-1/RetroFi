@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { sequenceRetrofit, fetchSolarActionSteps } from './api';
+import { sequenceRetrofit, fetchSolarActionSteps, getGoogleMapsConfig } from './api';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -15,6 +15,7 @@ function Dashboard() {
   const result = location.state?.result;
   const [selectedOption, setSelectedOption] = useState(null);
   const [solarSteps, setSolarSteps] = useState({ loading: true, steps: [], installers: [], error: false });
+  const [mapsApiKey, setMapsApiKey] = useState(null);
 
   const [rankedOptions, setRankedOptions] = useState(result?.calculation?.ranked_options || []);
   const [focus, setFocus] = useState(result?.calculation?.sequencing_focus || 'balanced');
@@ -32,6 +33,7 @@ function Dashboard() {
 
   // Fetch solar steps once on mount — cached in Dashboard state so modal re-opens don't re-fetch
   useEffect(() => {
+    getGoogleMapsConfig().then((cfg) => setMapsApiKey(cfg.api_key)).catch(() => {});
     if (!result?.solar_data) {
       setSolarSteps({ loading: false, steps: [], installers: [], error: false });
       return;
@@ -134,6 +136,8 @@ function Dashboard() {
           option={selectedOption}
           onClose={() => setSelectedOption(null)}
           solarSteps={solarSteps}
+          mapsApiKey={mapsApiKey}
+          propertyCoords={result.solar_data?.coordinates}
         />
       )}
     </div>
@@ -198,8 +202,7 @@ function StepCard({ option, onClick }) {
   );
 }
 
-function UpgradeModal({ option, onClose, solarSteps }) {
-  const topIncentives = option.matched_incentives?.slice(0, 3) || [];
+function UpgradeModal({ option, onClose, solarSteps, mapsApiKey, propertyCoords }) {
   const isSolar = option.upgrade_key === 'solar';
 
   return createPortal(
@@ -267,25 +270,48 @@ function UpgradeModal({ option, onClose, solarSteps }) {
           {option.description}
         </p>
 
-        {/* Financials */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          {[
-            { label: 'Net Cost', value: currency.format(option.net_cost), color: 'var(--text-primary)' },
-            { label: 'Incentives', value: currency.format(option.incentive_total), color: 'var(--success)' },
-            { label: 'Annual Savings', value: `${currency.format(option.annual_savings)}/yr`, color: 'var(--success)' },
-            { label: 'Payback Period', value: `${option.payback_years ?? 'N/A'} years`, color: 'var(--accent-primary)' },
-          ].map(({ label, value, color }) => (
-            <div key={label} style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>{label}</p>
-              <p style={{ color, fontWeight: 700, fontSize: '1.05rem' }}>{value}</p>
+        {/* Cost waterfall */}
+        <div style={{ background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '10px', padding: '1rem 1.1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.55rem' }}>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.87rem' }}>Gross Install Cost</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{currency.format(option.gross_cost)}</span>
+          </div>
+          {option.matched_incentives.map((incentive) => (
+            <div key={incentive.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', maxWidth: '72%' }}>
+                <span style={{ color: 'var(--success)', fontWeight: 700, marginRight: '0.3rem' }}>−</span>
+                {incentive.name}
+              </span>
+              <span style={{ color: 'var(--success)', fontWeight: 600, fontSize: '0.9rem' }}>−{currency.format(incentive.amount)}</span>
             </div>
           ))}
+          {option.matched_incentives.length === 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', fontStyle: 'italic' }}>No incentives applied</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>−$0</span>
+            </div>
+          )}
+          <div style={{ borderTop: '1px solid rgba(34,197,94,0.25)', margin: '0.6rem 0' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>Net Cost</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.15rem' }}>{currency.format(option.net_cost)}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.8rem', paddingTop: '0.7rem', borderTop: '1px solid rgba(34,197,94,0.1)' }}>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginBottom: '0.15rem' }}>Annual Savings</p>
+              <p style={{ color: 'var(--success)', fontWeight: 700 }}>{currency.format(option.annual_savings)}/yr</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginBottom: '0.15rem' }}>Payback Period</p>
+              <p style={{ color: 'var(--accent-primary)', fontWeight: 700 }}>{option.payback_years ?? 'N/A'} years</p>
+            </div>
+          </div>
         </div>
 
         {/* Next steps */}
         <div style={{ marginBottom: '1.5rem' }}>
           {isSolar
-            ? <SolarActionList solarSteps={solarSteps} />
+            ? <SolarActionList solarSteps={solarSteps} mapsApiKey={mapsApiKey} propertyCoords={propertyCoords} />
             : (
               <>
                 <h4 style={{ marginBottom: '0.75rem' }}>Next Steps</h4>
@@ -298,26 +324,13 @@ function UpgradeModal({ option, onClose, solarSteps }) {
             )}
         </div>
 
-        {/* Incentives — shown for non-solar (solar steps include incentive guidance inline) */}
-        {!isSolar && topIncentives.length > 0 && (
-          <div>
-            <h4 style={{ marginBottom: '0.6rem' }}>Likely Incentives to Check</h4>
-            <ul style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
-              {topIncentives.map((incentive) => (
-                <li key={incentive.id}>
-                  {incentive.name}: <strong style={{ color: 'var(--success)' }}>{currency.format(incentive.amount)}</strong>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>,
     document.body
   );
 }
 
-function SolarActionList({ solarSteps }) {
+function SolarActionList({ solarSteps, mapsApiKey, propertyCoords }) {
   const { loading, steps, installers, error } = solarSteps;
 
   if (loading) {
@@ -406,6 +419,7 @@ function SolarActionList({ solarSteps }) {
       {installers.length > 0 && (
         <div style={{ marginTop: '1.25rem' }}>
           <h4 style={{ marginBottom: '0.75rem' }}>Nearby Solar Installers</h4>
+          <InstallerMap propertyCoords={propertyCoords} installers={installers} apiKey={mapsApiKey} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {installers.map((ins) => (
               <a
@@ -451,6 +465,46 @@ function SolarActionList({ solarSteps }) {
         </div>
       )}
     </>
+  );
+}
+
+function InstallerMap({ propertyCoords, installers, apiKey }) {
+  if (!apiKey || !propertyCoords?.lat || !propertyCoords?.lng) return null;
+  const withCoords = installers.filter((ins) => ins.lat != null && ins.lng != null);
+  if (withCoords.length === 0) return null;
+  const { lat, lng } = propertyCoords;
+  const darkStyles = [
+    'feature:all|element:geometry|color:0x0d1b0d',
+    'feature:road|element:geometry|color:0x1c301c',
+    'feature:road.arterial|element:geometry.fill|color:0x243824',
+    'feature:road.highway|element:geometry.fill|color:0x2a4a2a',
+    'feature:water|element:geometry|color:0x061206',
+    'feature:poi|visibility:off',
+    'feature:transit|visibility:off',
+    'feature:all|element:labels.text.fill|color:0x7a7a7a',
+    'feature:all|element:labels.text.stroke|color:0x0d1b0d',
+    'feature:administrative|element:geometry.stroke|color:0x1e3a1e',
+  ].map((s) => `style=${encodeURIComponent(s)}`).join('&');
+  const homeMarker = `markers=size:mid|color:0x3b82f6|label:H|${lat},${lng}`;
+  const installerMarkers = withCoords
+    .map((ins, i) => `markers=size:mid|color:0x22c55e|label:${i + 1}|${ins.lat},${ins.lng}`)
+    .join('&');
+  const src = `https://maps.googleapis.com/maps/api/staticmap?size=560x220&scale=2&${darkStyles}&${homeMarker}&${installerMarkers}&key=${apiKey}`;
+  return (
+    <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(34,197,94,0.2)', marginBottom: '0.75rem' }}>
+      <img
+        src={src}
+        alt="Map showing your property (blue) and nearby solar installers (green)"
+        style={{ width: '100%', display: 'block' }}
+        onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
+      />
+      <div style={{ padding: '0.4rem 0.75rem', background: 'rgba(34,197,94,0.04)', display: 'flex', gap: '1.25rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+        <span><span style={{ color: '#3b82f6', fontWeight: 700 }}>H</span> Your property</span>
+        {withCoords.map((ins, i) => (
+          <span key={ins.place_id}><span style={{ color: '#22c55e', fontWeight: 700 }}>{i + 1}</span> {ins.name}</span>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -47,6 +47,8 @@ async def find_solar_installers(
         rating = place.get("rating")
         ratings_count = place.get("user_ratings_total", 0)
         if rating and ratings_count >= MIN_RATINGS_COUNT:
+            geometry = place.get("geometry") or {}
+            location = geometry.get("location") or {}
             installers.append(
                 {
                     "name": place.get("name", ""),
@@ -54,6 +56,8 @@ async def find_solar_installers(
                     "ratings_count": ratings_count,
                     "vicinity": place.get("vicinity", ""),
                     "place_id": place.get("place_id", ""),
+                    "lat": location.get("lat"),
+                    "lng": location.get("lng"),
                 }
             )
 

@@ -195,6 +195,8 @@ class NearbyInstaller(BaseModel):
     ratings_count: int
     vicinity: str
     place_id: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 class SolarStep(BaseModel):
