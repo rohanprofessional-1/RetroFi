@@ -405,9 +405,15 @@ def _dedupe_incentives(incentives: List[IncentiveMatch]) -> List[IncentiveMatch]
 
 
 def _eligibility_notes(document: Dict) -> str:
-    if document.get("eligibility_status") == "needs_income_verification":
-        return f"{document['eligibility']} Income was not provided, so eligibility needs verification."
-    return document["eligibility"]
+    status = document.get("eligibility_status", "")
+    eligibility = document.get("eligibility", "")
+    if status == "program_pending":
+        return f"{eligibility} This program has not launched yet — amounts shown are estimates based on proposed rules."
+    if status == "needs_income_verification":
+        return f"{eligibility} Income eligibility cannot be confirmed without location-specific AMI data — verify before claiming."
+    if status == "needs_equipment_verification":
+        return f"{eligibility} Equipment must be verified to meet the required certification standards before this incentive can be claimed."
+    return eligibility
 
 
 CONFIDENCE_WEIGHTS = {"high": 1.2, "medium": 1.0, "low": 0.8}
