@@ -1,0 +1,31 @@
+{
+  "indexed_at": "2026-06-16T03:03:04.507798+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/il",
+  "collection_name": "retrofi_incentive_sources_il",
+  "collection_count": 12,
+  "files": [
+    {
+      "path": "sources/il/Home Weatherization - Home Weatherization.html",
+      "sha256": "7c3b0e8f857e17252d07a1d9b6d2728b40572f3295154a69ba034122d9dde699",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Home Weatherization - Home Weatherization",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/il/IEPA-Office-of-Energy-IRA-Home-Energy-Rebate-Update-7.23.2025.pdf",
+      "sha256": "c98018b89381163213f5e4610057198b123548a1463e584a4229b62841ed81c5",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "IEPA-Office-of-Energy-IRA-Home-Energy-Rebate-Update-7.23.2025",
+      "document_date": "2025",
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 2,
+    "chunks_created": 9,
+    "records_indexed": 12
+  }
+}

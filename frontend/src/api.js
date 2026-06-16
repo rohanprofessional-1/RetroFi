@@ -87,6 +87,31 @@ export async function fetchSolarActionSteps(address, solarData, matchedIncentive
   return response.json();
 }
 
+export async function fetchActionSteps(upgradeKey, address, coordinates, propertyProfile, matchedIncentives, option) {
+  const response = await fetch(`${API_BASE_URL}/action-steps`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      upgrade_key: upgradeKey,
+      address,
+      coordinates,
+      property_profile: propertyProfile,
+      matched_incentives: matchedIncentives,
+      gross_cost: option?.gross_cost ?? 0,
+      net_cost: option?.net_cost ?? 0,
+      annual_savings: option?.annual_savings ?? 0,
+      payback_years: option?.payback_years ?? null,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function getGoogleMapsConfig() {
   const response = await fetch(`${API_BASE_URL}/config/google-maps`);
 

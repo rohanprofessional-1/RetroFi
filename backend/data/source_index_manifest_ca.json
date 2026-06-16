@@ -1,0 +1,31 @@
+{
+  "indexed_at": "2026-06-16T03:03:05.131080+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/ca",
+  "collection_name": "retrofi_incentive_sources_ca",
+  "collection_count": 43,
+  "files": [
+    {
+      "path": "sources/ca/Inflation Reduction Act Residential Energy Rebate Programs _ California Energy Commission.html",
+      "sha256": "80438cb52364fac648fc319bd00220fd6731cc423dff473c747ca7e3136b711a",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Inflation Reduction Act Residential Energy Rebate Programs | California Energy Commission (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link sends email) (link is external) (link sends email) (link sends email) (link sends email) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link sends email) (link sends email) (link sends email) (link is external) (link sends email) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link is external) (link sends email) (link is external) (link is external) (link is external) (link is external) (link is external)",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ca/TECH Public Reporting HEEHRA Rebates.html",
+      "sha256": "433794f6b4c33cedf009e18e6364abc905928b9e070e8ec573c98aa15ede1199",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "TECH Public Reporting HEEHRA Rebates",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 2,
+    "chunks_created": 35,
+    "records_indexed": 43
+  }
+}

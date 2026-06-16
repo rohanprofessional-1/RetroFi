@@ -1,0 +1,49 @@
+{
+  "indexed_at": "2026-06-16T03:03:04.558654+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/fl",
+  "collection_name": "retrofi_incentive_sources_fl",
+  "collection_count": 31,
+  "files": [
+    {
+      "path": "sources/fl/Florida Energy Saver Program - HEAR Program.html",
+      "sha256": "6c016541eb9588af00a24aa537e7379e5bad182f6866dd9c0023f425cb81ee4b",
+      "parser": "html",
+      "source_type": "state_rebate_pdf",
+      "title": "Florida Energy Saver Program - HEAR Program",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/fl/Florida Energy Saver Program - HOMES Program.html",
+      "sha256": "ce48c22e26f3dd60ea0d34608b770f756569f23ff425f6a0719fe854eea1806f",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Florida Energy Saver Program - HOMES Program",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/fl/Weatherization Assistance Program (WAP) _ Monroe County, FL - Official Website.html",
+      "sha256": "f32495ddda4a8eb3ae22ac88c36e6f4c1f493488b07fbfa768df5c3f442b0f7b",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Weatherization Assistance Program (WAP) | Monroe County, FL - Official Website Arrow Left Arrow Right Slideshow Left Arrow Slideshow Right Arrow",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/fl/Weatherization Assistance Program (WAP).html",
+      "sha256": "8d187ad90842336b19e594d82c00d0d7eae47a29b4a4acb4034a79ad10aebfa1",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Weatherization Assistance Program (WAP)",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 4,
+    "chunks_created": 26,
+    "records_indexed": 31
+  }
+}

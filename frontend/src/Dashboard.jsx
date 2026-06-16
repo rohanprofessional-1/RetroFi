@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { sequenceRetrofit, fetchSolarActionSteps, getGoogleMapsConfig } from './api';
+import { sequenceRetrofit, fetchSolarActionSteps, fetchActionSteps, getGoogleMapsConfig } from './api';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -16,6 +16,7 @@ function Dashboard() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [solarSteps, setSolarSteps] = useState({ loading: true, steps: [], installers: [], error: false });
   const [mapsApiKey, setMapsApiKey] = useState(null);
+  const [upgradeSteps, setUpgradeSteps] = useState({});
 
   const [rankedOptions, setRankedOptions] = useState(result?.calculation?.ranked_options || []);
   const [focus, setFocus] = useState(result?.calculation?.sequencing_focus || 'balanced');
@@ -52,6 +53,38 @@ function Dashboard() {
       .then((data) => setSolarSteps({ loading: false, steps: data.steps || [], installers: data.nearby_installers || [], error: false }))
       .catch(() => setSolarSteps({ loading: false, steps: [], installers: [], error: true }));
   }, []);
+
+  // Fetch steps for non-solar upgrades on first modal open; cache in upgradeSteps state
+  useEffect(() => {
+    if (!selectedOption || selectedOption.upgrade_key === 'solar') return;
+    const key = selectedOption.upgrade_key;
+    if (upgradeSteps[key]) return; // already fetched or in-flight
+
+    const coords = result.solar_data?.coordinates ?? null;
+    const assumptions = result.calculation.assumptions ?? {};
+    const profile = {
+      square_footage: assumptions.square_footage ?? null,
+      home_type: assumptions.home_type ?? null,
+      ...(result.property_profile ?? {}),
+    };
+    const matchedIncentives = (selectedOption.matched_incentives || []).map((inc) => ({
+      name: inc.name,
+      amount: inc.amount,
+      amount_description: inc.amount_description,
+      eligibility_notes: inc.eligibility_notes,
+    }));
+
+    setUpgradeSteps((prev) => ({ ...prev, [key]: { loading: true, steps: [], contractors: [], error: false } }));
+    fetchActionSteps(key, result.calculation.address, coords, profile, matchedIncentives, selectedOption)
+      .then((data) => setUpgradeSteps((prev) => ({
+        ...prev,
+        [key]: { loading: false, steps: data.steps || [], contractors: data.nearby_contractors || [], error: false },
+      })))
+      .catch(() => setUpgradeSteps((prev) => ({
+        ...prev,
+        [key]: { loading: false, steps: [], contractors: [], error: true },
+      })));
+  }, [selectedOption]);
 
   if (!result) return null;
 
@@ -163,6 +196,7 @@ function Dashboard() {
           option={selectedOption}
           onClose={() => setSelectedOption(null)}
           solarSteps={solarSteps}
+          upgradeSteps={upgradeSteps[selectedOption.upgrade_key]}
           mapsApiKey={mapsApiKey}
           propertyCoords={result.solar_data?.coordinates}
         />
@@ -229,7 +263,7 @@ function StepCard({ option, onClick }) {
   );
 }
 
-function UpgradeModal({ option, onClose, solarSteps, mapsApiKey, propertyCoords }) {
+function UpgradeModal({ option, onClose, solarSteps, upgradeSteps, mapsApiKey, propertyCoords }) {
   const isSolar = option.upgrade_key === 'solar';
 
   return createPortal(
@@ -339,16 +373,8 @@ function UpgradeModal({ option, onClose, solarSteps, mapsApiKey, propertyCoords 
         <div style={{ marginBottom: '1.5rem' }}>
           {isSolar
             ? <SolarActionList solarSteps={solarSteps} mapsApiKey={mapsApiKey} propertyCoords={propertyCoords} />
-            : (
-              <>
-                <h4 style={{ marginBottom: '0.75rem' }}>Next Steps</h4>
-                <ol style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
-                  <li>Ask a qualified contractor for a quote for {option.name.toLowerCase()}.</li>
-                  <li>Confirm the equipment meets the incentive requirements before signing.</li>
-                  <li>Keep receipts, model numbers, and photos for rebate or tax credit paperwork.</li>
-                </ol>
-              </>
-            )}
+            : <UpgradeActionList upgradeSteps={upgradeSteps} mapsApiKey={mapsApiKey} propertyCoords={propertyCoords} />
+          }
         </div>
 
       </div>
@@ -357,26 +383,155 @@ function UpgradeModal({ option, onClose, solarSteps, mapsApiKey, propertyCoords 
   );
 }
 
+function StepCards({ steps }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+      {steps.map((step, i) => (
+        <div
+          key={i}
+          style={{
+            background: 'rgba(34,197,94,0.05)',
+            border: '1px solid rgba(34,197,94,0.15)',
+            borderRadius: '10px',
+            padding: '0.875rem 1rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+            <span style={{
+              background: 'rgba(34,197,94,0.15)',
+              color: 'var(--accent-primary)',
+              fontWeight: 700,
+              fontSize: '0.78rem',
+              borderRadius: '50%',
+              minWidth: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>{i + 1}</span>
+            <p style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.93rem' }}>{step.title}</p>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.5rem', paddingLeft: '2.1rem', fontStyle: 'italic' }}>
+            {step.summary}
+          </p>
+          <ul style={{ paddingLeft: '2.1rem', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+            {(step.bullets || []).map((bullet, j) => (
+              <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 700, flexShrink: 0, marginTop: '0.05rem' }}>›</span>
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+      <h4 style={{ marginBottom: '0.25rem' }}>Your Personalized Next Steps</h4>
+      {[...Array(6)].map((_, i) => (
+        <div key={i} style={{
+          height: '72px',
+          borderRadius: '10px',
+          background: 'rgba(34,197,94,0.05)',
+          border: '1px solid rgba(34,197,94,0.1)',
+          animation: 'pulse 1.5s ease-in-out infinite',
+          opacity: 1 - i * 0.1,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+function ContractorCards({ contractors, label = 'Nearby Contractors', propertyCoords, mapsApiKey }) {
+  if (!contractors || contractors.length === 0) return null;
+  return (
+    <div style={{ marginTop: '1.25rem' }}>
+      <h4 style={{ marginBottom: '0.75rem' }}>{label}</h4>
+      <InstallerMap propertyCoords={propertyCoords} installers={contractors} apiKey={mapsApiKey} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {contractors.map((c) => (
+          <a
+            key={c.place_id}
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name)}&query_place_id=${c.place_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: 'rgba(34,197,94,0.05)',
+              border: '1px solid rgba(34,197,94,0.15)',
+              borderRadius: '8px',
+              padding: '0.6rem 0.875rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '0.5rem',
+              textDecoration: 'none',
+              transition: 'border-color 0.15s ease, background 0.15s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'rgba(34,197,94,0.09)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.15)'; e.currentTarget.style.background = 'rgba(34,197,94,0.05)'; }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ fontWeight: 600, color: 'var(--accent-primary)', fontSize: '0.9rem' }}>{c.name}</span>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.7 }}>
+                  <path d="M2.5 1.5H10.5V9.5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10.5 1.5L1.5 10.5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{c.rating}★</span>
+                {' '}({c.ratings_count} reviews) · {c.vicinity}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 600, whiteSpace: 'nowrap', opacity: 0.8 }}>
+              View on Maps →
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UpgradeActionList({ upgradeSteps, mapsApiKey, propertyCoords }) {
+  if (!upgradeSteps || upgradeSteps.loading) return <LoadingSkeleton />;
+
+  if (upgradeSteps.error || upgradeSteps.steps.length === 0) {
+    return (
+      <>
+        <h4 style={{ marginBottom: '0.75rem' }}>Next Steps</h4>
+        <ol style={{ color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
+          <li>Ask a qualified contractor for a quote and site assessment.</li>
+          <li>Confirm equipment meets incentive requirements before signing.</li>
+          <li>Keep receipts, model numbers, and photos for rebate or tax credit paperwork.</li>
+        </ol>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h4 style={{ marginBottom: '0.75rem' }}>Your Personalized Next Steps</h4>
+      <StepCards steps={upgradeSteps.steps} />
+      <ContractorCards
+        contractors={upgradeSteps.contractors}
+        label="Nearby Contractors"
+        propertyCoords={propertyCoords}
+        mapsApiKey={mapsApiKey}
+      />
+    </>
+  );
+}
+
 function SolarActionList({ solarSteps, mapsApiKey, propertyCoords }) {
   const { loading, steps, installers, error } = solarSteps;
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-        <h4 style={{ marginBottom: '0.25rem' }}>Your Personalized Next Steps</h4>
-        {[...Array(6)].map((_, i) => (
-          <div key={i} style={{
-            height: '72px',
-            borderRadius: '10px',
-            background: 'rgba(34,197,94,0.05)',
-            border: '1px solid rgba(34,197,94,0.1)',
-            animation: 'pulse 1.5s ease-in-out infinite',
-            opacity: 1 - i * 0.1,
-          }} />
-        ))}
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (error || steps.length === 0) {
     return (
@@ -394,103 +549,13 @@ function SolarActionList({ solarSteps, mapsApiKey, propertyCoords }) {
   return (
     <>
       <h4 style={{ marginBottom: '0.75rem' }}>Your Personalized Next Steps</h4>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-        {steps.map((step, i) => (
-          <div
-            key={i}
-            style={{
-              background: 'rgba(34,197,94,0.05)',
-              border: '1px solid rgba(34,197,94,0.15)',
-              borderRadius: '10px',
-              padding: '0.875rem 1rem',
-            }}
-          >
-            {/* Title row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
-              <span style={{
-                background: 'rgba(34,197,94,0.15)',
-                color: 'var(--accent-primary)',
-                fontWeight: 700,
-                fontSize: '0.78rem',
-                borderRadius: '50%',
-                minWidth: '24px',
-                height: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                {i + 1}
-              </span>
-              <p style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.93rem' }}>
-                {step.title}
-              </p>
-            </div>
-            {/* Summary */}
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.5rem', paddingLeft: '2.1rem', fontStyle: 'italic' }}>
-              {step.summary}
-            </p>
-            {/* Bullets */}
-            <ul style={{ paddingLeft: '2.1rem', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              {(step.bullets || []).map((bullet, j) => (
-                <li key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
-                  <span style={{ color: 'var(--accent-primary)', fontWeight: 700, flexShrink: 0, marginTop: '0.05rem' }}>›</span>
-                  {bullet}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      {installers.length > 0 && (
-        <div style={{ marginTop: '1.25rem' }}>
-          <h4 style={{ marginBottom: '0.75rem' }}>Nearby Solar Installers</h4>
-          <InstallerMap propertyCoords={propertyCoords} installers={installers} apiKey={mapsApiKey} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {installers.map((ins) => (
-              <a
-                key={ins.place_id}
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ins.name)}&query_place_id=${ins.place_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  background: 'rgba(34,197,94,0.05)',
-                  border: '1px solid rgba(34,197,94,0.15)',
-                  borderRadius: '8px',
-                  padding: '0.6rem 0.875rem',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  textDecoration: 'none',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease, background 0.15s ease',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.4)'; e.currentTarget.style.background = 'rgba(34,197,94,0.09)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.15)'; e.currentTarget.style.background = 'rgba(34,197,94,0.05)'; }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--accent-primary)', fontSize: '0.9rem' }}>{ins.name}</span>
-                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, opacity: 0.7 }}>
-                      <path d="M2.5 1.5H10.5V9.5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M10.5 1.5L1.5 10.5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                    <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{ins.rating}★</span>
-                    {' '}({ins.ratings_count} reviews) · {ins.vicinity}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 600, whiteSpace: 'nowrap', opacity: 0.8 }}>
-                  View on Maps →
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      <StepCards steps={steps} />
+      <ContractorCards
+        contractors={installers}
+        label="Nearby Solar Installers"
+        propertyCoords={propertyCoords}
+        mapsApiKey={mapsApiKey}
+      />
     </>
   );
 }

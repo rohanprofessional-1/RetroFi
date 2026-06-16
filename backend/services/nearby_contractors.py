@@ -15,12 +15,13 @@ PLACES_NEARBY_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/jso
 MIN_RATINGS_COUNT = 5
 
 
-async def find_solar_installers(
+async def find_nearby_contractors(
     lat: float,
     lng: float,
+    keyword: str,
     radius_m: int = 40000,
 ) -> list[dict]:
-    """Return up to 3 nearby solar installers from Google Places, sorted by rating."""
+    """Return up to 3 nearby contractors from Google Places for a given keyword, sorted by rating."""
     api_key = GOOGLE_API_KEY
     if not api_key:
         return []
@@ -32,7 +33,7 @@ async def find_solar_installers(
                 params={
                     "location": f"{lat},{lng}",
                     "radius": radius_m,
-                    "keyword": "solar panel installation",
+                    "keyword": keyword,
                     "key": api_key,
                 },
             )
@@ -42,14 +43,14 @@ async def find_solar_installers(
         return []
 
     results = data.get("results") or []
-    installers = []
+    contractors = []
     for place in results:
         rating = place.get("rating")
         ratings_count = place.get("user_ratings_total", 0)
         if rating and ratings_count >= MIN_RATINGS_COUNT:
             geometry = place.get("geometry") or {}
             location = geometry.get("location") or {}
-            installers.append(
+            contractors.append(
                 {
                     "name": place.get("name", ""),
                     "rating": rating,
@@ -61,5 +62,9 @@ async def find_solar_installers(
                 }
             )
 
-    installers.sort(key=lambda x: x["rating"], reverse=True)
-    return installers[:3]
+    contractors.sort(key=lambda x: x["rating"], reverse=True)
+    return contractors[:3]
+
+
+async def find_solar_installers(lat: float, lng: float, radius_m: int = 40000) -> list[dict]:
+    return await find_nearby_contractors(lat, lng, "solar panel installation", radius_m)
