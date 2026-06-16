@@ -154,13 +154,8 @@ def _clean_summary_text(summary: str) -> str:
     cleaned = "\n".join(lines)
     cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
     cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
-    
-    # Extract only the first non-empty paragraph
-    paragraphs = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
-    if paragraphs:
-        cleaned = paragraphs[0]
-        
-    # Replace any single newlines within the paragraph with spaces to ensure a single block
+
+    # Collapse all newlines (single or double) into spaces to form one clean prose block
     cleaned = re.sub(r"\s*\n\s*", " ", cleaned)
     return cleaned.strip()
 

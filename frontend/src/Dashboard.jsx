@@ -67,31 +67,6 @@ function Dashboard() {
       <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--accent-primary)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h3 style={{ margin: 0 }}>Recommendation Overview</h3>
-          {result.summary_source === 'local_llm' && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              background: 'rgba(34, 197, 94, 0.1)',
-              border: '1px solid rgba(34, 197, 94, 0.25)',
-              color: '#4ade80',
-              padding: '0.25rem 0.6rem',
-              borderRadius: '9999px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: '0.025em',
-            }}>
-              <span style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: '#4ade80',
-                display: 'inline-block',
-                boxShadow: '0 0 8px #4ade80',
-              }} />
-              <span>Ollama: {result.model || 'qwen2.5:0.5b'}</span>
-            </div>
-          )}
           {result.summary_source === 'fallback' && (
             <div style={{
               display: 'flex',
