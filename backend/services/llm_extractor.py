@@ -331,6 +331,20 @@ def _normalize_raw(raw: Dict[str, Any], state: str) -> Dict[str, Any]:
     """Fix common LLM response issues."""
     raw = dict(raw)
 
+    # Remove None values for boolean fields that have non-optional defaults
+    for field in (
+        "resets_annually",
+        "tax_liability_required",
+        "stackable",
+        "subsidy_basis_reduction",
+        "ownership_required",
+        "primary_residence_required",
+        "energy_audit_required",
+    ):
+        if raw.get(field) is None:
+            raw.pop(field, None)
+
+
     # Normalize program_id
     pid = raw.get("program_id", "")
     if not pid.startswith(f"{state}-"):
