@@ -32,34 +32,14 @@ function Dashboard() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Fetch solar steps once on mount — cached in Dashboard state so modal re-opens don't re-fetch
+  // Pre-fetch all upgrade steps in parallel on mount so modals open instantly.
+  // Results are cached in sessionStorage keyed by address so refreshes are instant.
   useEffect(() => {
+    if (!result) return;
+
     getGoogleMapsConfig().then((cfg) => setMapsApiKey(cfg.api_key)).catch(() => {});
-    if (!result?.solar_data) {
-      setSolarSteps({ loading: false, steps: [], installers: [], error: false });
-      return;
-    }
-    const solarOption = result.calculation.ranked_options?.find((o) => o.upgrade_key === 'solar');
-    if (!solarOption) {
-      setSolarSteps({ loading: false, steps: [], installers: [], error: false });
-      return;
-    }
-    const matchedIncentives = solarOption.matched_incentives.map((inc) => ({
-      name: inc.name,
-      amount: inc.amount,
-      amount_description: inc.amount_description,
-    }));
-    fetchSolarActionSteps(result.calculation.address, result.solar_data, matchedIncentives)
-      .then((data) => setSolarSteps({ loading: false, steps: data.steps || [], installers: data.nearby_installers || [], error: false }))
-      .catch(() => setSolarSteps({ loading: false, steps: [], installers: [], error: true }));
-  }, []);
 
-  // Fetch steps for non-solar upgrades on first modal open; cache in upgradeSteps state
-  useEffect(() => {
-    if (!selectedOption || selectedOption.upgrade_key === 'solar') return;
-    const key = selectedOption.upgrade_key;
-    if (upgradeSteps[key]) return; // already fetched or in-flight
-
+    const address = result.calculation.address;
     const coords = result.solar_data?.coordinates ?? null;
     const assumptions = result.calculation.assumptions ?? {};
     const profile = {
@@ -67,24 +47,70 @@ function Dashboard() {
       home_type: assumptions.home_type ?? null,
       ...(result.property_profile ?? {}),
     };
-    const matchedIncentives = (selectedOption.matched_incentives || []).map((inc) => ({
-      name: inc.name,
-      amount: inc.amount,
-      amount_description: inc.amount_description,
-      eligibility_notes: inc.eligibility_notes,
-    }));
+    const options = result.calculation.ranked_options ?? [];
 
-    setUpgradeSteps((prev) => ({ ...prev, [key]: { loading: true, steps: [], contractors: [], error: false } }));
-    fetchActionSteps(key, result.calculation.address, coords, profile, matchedIncentives, selectedOption)
-      .then((data) => setUpgradeSteps((prev) => ({
-        ...prev,
-        [key]: { loading: false, steps: data.steps || [], contractors: data.nearby_contractors || [], error: false },
-      })))
-      .catch(() => setUpgradeSteps((prev) => ({
-        ...prev,
-        [key]: { loading: false, steps: [], contractors: [], error: true },
-      })));
-  }, [selectedOption]);
+    const cacheKey = (key) => `retrofi_steps__${key}__${address}`;
+
+    const readCache = (key) => {
+      try { return JSON.parse(sessionStorage.getItem(cacheKey(key))); } catch { return null; }
+    };
+    const writeCache = (key, data) => {
+      try { sessionStorage.setItem(cacheKey(key), JSON.stringify(data)); } catch {}
+    };
+
+    // Solar
+    const solarOption = options.find((o) => o.upgrade_key === 'solar');
+    if (result.solar_data && solarOption) {
+      const cached = readCache('solar');
+      if (cached) {
+        setSolarSteps(cached);
+      } else {
+        const incentives = solarOption.matched_incentives.map((inc) => ({
+          name: inc.name, amount: inc.amount, amount_description: inc.amount_description,
+        }));
+        fetchSolarActionSteps(address, result.solar_data, incentives)
+          .then((data) => {
+            const state = { loading: false, steps: data.steps || [], installers: data.nearby_installers || [], error: false };
+            writeCache('solar', state);
+            setSolarSteps(state);
+          })
+          .catch(() => setSolarSteps({ loading: false, steps: [], installers: [], error: true }));
+      }
+    } else {
+      setSolarSteps({ loading: false, steps: [], installers: [], error: false });
+    }
+
+    // All non-solar upgrades — serve from cache or fetch in parallel
+    const nonSolarOptions = options.filter((o) => o.upgrade_key !== 'solar');
+    if (nonSolarOptions.length === 0) return;
+
+    const initialState = Object.fromEntries(
+      nonSolarOptions.map((o) => {
+        const cached = readCache(o.upgrade_key);
+        return [o.upgrade_key, cached ?? { loading: true, steps: [], contractors: [], error: false }];
+      })
+    );
+    setUpgradeSteps(initialState);
+
+    nonSolarOptions.forEach((option) => {
+      const key = option.upgrade_key;
+      if (readCache(key)) return; // already hydrated from cache above
+
+      const incentives = (option.matched_incentives || []).map((inc) => ({
+        name: inc.name, amount: inc.amount, amount_description: inc.amount_description, eligibility_notes: inc.eligibility_notes,
+      }));
+      fetchActionSteps(key, address, coords, profile, incentives, option)
+        .then((data) => {
+          const state = { loading: false, steps: data.steps || [], contractors: data.nearby_contractors || [], error: false };
+          writeCache(key, state);
+          setUpgradeSteps((prev) => ({ ...prev, [key]: state }));
+        })
+        .catch(() => setUpgradeSteps((prev) => ({
+          ...prev,
+          [key]: { loading: false, steps: [], contractors: [], error: true },
+        })));
+    });
+  }, []);
 
   if (!result) return null;
 
