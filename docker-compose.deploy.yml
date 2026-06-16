@@ -1,0 +1,28 @@
+# Production image build & push for Artifact Registry.
+# Usage (from repo root):
+#   export BACKEND_IMAGE=us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:latest
+#   docker compose -f docker-compose.deploy.yml build backend
+#   docker compose -f docker-compose.deploy.yml push backend
+#
+# Optional — frontend image (only if deploying frontend to Cloud Run):
+#   export FRONTEND_IMAGE=us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/frontend:latest
+#   export VITE_API_BASE_URL=https://your-backend-url.run.app
+#   docker compose -f docker-compose.deploy.yml build frontend
+#   docker compose -f docker-compose.deploy.yml push frontend
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to your Artifact Registry URL}
+    platform: linux/amd64
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE to your Artifact Registry URL}
+    platform: linux/amd64
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?Set VITE_API_BASE_URL to your backend URL}

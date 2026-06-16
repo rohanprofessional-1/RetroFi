@@ -62,3 +62,6 @@ venv.bak/
 *.sqlite3
 database.db
 backend/data/chroma/
+
+# GCP
+.firebaserc
