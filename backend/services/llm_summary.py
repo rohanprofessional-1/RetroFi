@@ -13,7 +13,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 # Default Local LLM settings
 DEFAULT_LLM_BASE_URL = "http://127.0.0.1:11434"
-DEFAULT_LOCAL_MODEL = "qwen3:4b"
+DEFAULT_LOCAL_MODEL = "qwen2.5:0.5b"
 
 
 def summarize_retrofit_calculation(
@@ -42,13 +42,25 @@ def summarize_retrofit_calculation(
 
 
 def build_summary_prompt(calculation: RetrofitCalculationResponse) -> str:
+    # Build a highly concise payload so smaller local models are not overwhelmed
+    ranked_options_summary = []
+    for opt in calculation.ranked_options:
+        ranked_options_summary.append({
+            "rank": opt.rank,
+            "name": opt.name,
+            "net_cost": opt.net_cost,
+            "annual_savings": opt.annual_savings,
+            "payback_years": opt.payback_years,
+        })
+
     payload = {
         "address": calculation.address,
-        "totals": _model_to_dict(calculation.totals),
-        "ranked_options": [_model_to_dict(option) for option in calculation.ranked_options],
-        "assumptions": _model_to_dict(calculation.assumptions),
-        "llm_context": _model_to_dict(calculation.llm_context),
-        "citations": [_model_to_dict(citation) for citation in calculation.citations],
+        "totals": {
+            "net_cost": calculation.totals.net_cost,
+            "annual_savings": calculation.totals.annual_savings,
+            "carbon_avoided_tons": calculation.totals.carbon_avoided_tons,
+        },
+        "ranked_options": ranked_options_summary,
     }
     return (
         "You are RetroFi ATL's homeowner-facing retrofit advisor.\n"
@@ -57,12 +69,12 @@ def build_summary_prompt(calculation: RetrofitCalculationResponse) -> str:
         "or eligibility facts.\n"
         "Write a concise plain-English recommendation for an Atlanta homeowner.\n"
         "Format rules:\n"
-        "- No Markdown, headings, bullets, numbered lists, hashtags, or bold markers.\n"
-        "- Keep it to 2 short paragraphs, 120 words maximum.\n"
+        "- Write exactly one short paragraph. Keep it to 60 words maximum.\n"
+        "- Do not use any markdown, bold formatting, bullet points, headers, or lists. Write only plain text.\n"
         "- Start with the single best first action and why.\n"
         "- Mention only the most important cost, savings, incentive, and payback facts.\n"
         "- End with one practical next step.\n"
-        "Use only the provided citations and facts.\n\n"
+        "Use only the provided facts.\n\n"
         f"DETERMINISTIC_CONTEXT_JSON:\n{json.dumps(payload, indent=2)}"
     )
 
@@ -75,11 +87,28 @@ def _call_local_llm(prompt: str, base_url: str, model: str) -> Tuple[str, str]:
     num_ctx = int(num_ctx_str) if num_ctx_str else 8192
 
     temperature_str, _ = _config_value("LOCAL_LLM_TEMPERATURE")
-    temperature = float(temperature_str) if temperature_str else 0.2
+    temperature = float(temperature_str) if temperature_str else 0.0
+
+    system_instruction = (
+        "You are RetroFi ATL's homeowner-facing retrofit advisor.\n"
+        "The deterministic engine is the source of truth. Do not recalculate, alter, "
+        "or invent dollar amounts, carbon values, payback periods, incentives, rankings, "
+        "or eligibility facts.\n"
+        "Format rules:\n"
+        "- Write exactly one short paragraph. Keep it to 60 words maximum.\n"
+        "- Do not use any markdown, bold formatting, bullet points, headers, or lists. Write only plain text.\n"
+        "- Start with the single best first action and why.\n"
+        "- Mention only the most important cost, savings, incentive, and payback facts.\n"
+        "- End with one practical next step.\n"
+        "Use only the provided facts."
+    )
 
     body = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ],
         "temperature": temperature,
         "options": {
             "num_ctx": num_ctx,
@@ -100,13 +129,17 @@ def _call_local_llm(prompt: str, base_url: str, model: str) -> Tuple[str, str]:
     try:
         with urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, OSError):
+    except Exception as exc:
+        import sys
+        print(f"[LLM_SUMMARY] Local LLM call failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return "", "fallback"
 
     try:
         summary = payload["choices"][0]["message"]["content"].strip()
         return (summary, "local_llm") if summary else ("", "fallback")
-    except (KeyError, IndexError):
+    except (KeyError, IndexError) as exc:
+        import sys
+        print(f"[LLM_SUMMARY] Local LLM payload parsing failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return "", "fallback"
 
 
@@ -114,14 +147,21 @@ def _clean_summary_text(summary: str) -> str:
     lines = []
     for line in summary.splitlines():
         cleaned = re.sub(r"^\s{0,3}#{1,6}\s*", "", line)
-        cleaned = re.sub(r"^\s*[-*]\s+", "", cleaned)
+        cleaned = re.sub(r"^\s*[-*•]\s+", "", cleaned)
         cleaned = re.sub(r"^\s*\d+\.\s+", "", cleaned)
         lines.append(cleaned.strip())
 
     cleaned = "\n".join(lines)
     cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
     cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    
+    # Extract only the first non-empty paragraph
+    paragraphs = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
+    if paragraphs:
+        cleaned = paragraphs[0]
+        
+    # Replace any single newlines within the paragraph with spaces to ensure a single block
+    cleaned = re.sub(r"\s*\n\s*", " ", cleaned)
     return cleaned.strip()
 
 

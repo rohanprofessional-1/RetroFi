@@ -63,7 +63,7 @@ class LlmSummaryTests(unittest.TestCase):
         self.assertEqual(response.llm_summary, "This is a local LLM summary.")
         self.assertEqual(response.calculation.address, calculation.address)
 
-    def test_prompt_includes_ranked_facts_and_citations(self):
+    def test_prompt_includes_ranked_facts(self):
         request = RetrofitCalculationRequest(**_mock_payload())
         calculation = calculate_retrofit_options(request, index=IncentiveIndex(use_vector=False))
 
@@ -71,13 +71,11 @@ class LlmSummaryTests(unittest.TestCase):
 
         self.assertIn("deterministic engine is the source of truth", prompt)
         self.assertIn("ranked_options", prompt)
-        self.assertIn("citations", prompt)
-        self.assertIn("No Markdown", prompt)
-        self.assertIn("120 words maximum", prompt)
+        self.assertIn("60 words maximum", prompt)
 
     def test_summary_cleanup_removes_markdown_markers(self):
         summary = _clean_summary_text(
-            "# What To Do First\n\n"
+            "# What To Do First\n"
             "**Start with Rooftop Solar PV.** It has the best savings.\n"
             "1. **Next step:** confirm the incentive paperwork."
         )

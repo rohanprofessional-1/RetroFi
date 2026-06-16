@@ -80,22 +80,34 @@ function Questionnaire() {
   })).filter((section) => section.fields.length > 0);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% -20%, #1e293b, #0f172a)' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', borderBottom: '1px solid var(--card-border)', background: 'rgba(15, 23, 42, 0.8)', position: 'sticky', top: 0, zIndex: 10 }}>
-        <h2 style={{ margin: 0, fontSize: '1.25rem' }}>
-          <span className="text-gradient">RetroFi ATL</span>
-        </h2>
-        <button onClick={() => navigate('/')} style={{ background: 'transparent', border: '1px solid var(--card-border)', color: 'var(--text-secondary)', padding: '0.4rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
-          Start over
-        </button>
-      </header>
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% -10%, #0d2318 0%, #071810 65%)' }}>
 
       <div style={{ maxWidth: '760px', margin: '0 auto', padding: '2.5rem 1.5rem 4rem' }}>
         <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>
-            <span className="text-gradient">Home Energy Profile</span>
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{address}</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.5rem' }}>
+            <h1 style={{ fontSize: '1.75rem', margin: 0 }}>
+              <span className="text-gradient">Home Energy Profile</span>
+            </h1>
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                flexShrink: 0,
+                background: 'rgba(10, 26, 20, 0.75)',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
+                color: 'var(--text-secondary)',
+                padding: '0.4rem 0.9rem',
+                borderRadius: '999px',
+                cursor: 'pointer',
+                fontSize: '0.82rem',
+                transition: 'border-color 0.2s ease, color 0.2s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.55)'; e.currentTarget.style.color = '#f0fdf4'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(34,197,94,0.25)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              Start over
+            </button>
+          </div>
+          <p style={{ color: '#f0fdf4', fontSize: '1rem', fontWeight: 700 }}>{address}</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
@@ -116,7 +128,7 @@ function Questionnaire() {
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                         {field.options.map((option) => (
-                          <button key={option} type="button" onClick={() => setValue(field.key, option)} style={{ padding: '0.5rem 1rem', borderRadius: '999px', cursor: 'pointer', background: formValues[field.key] === option ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.07)', border: formValues[field.key] === option ? '1px solid rgba(59, 130, 246, 0.8)' : '1px solid rgba(59, 130, 246, 0.25)', color: formValues[field.key] === option ? '#e2e8f0' : 'var(--text-secondary)' }}>
+                          <button key={option} type="button" onClick={() => setValue(field.key, option)} style={{ padding: '0.5rem 1rem', borderRadius: '999px', cursor: 'pointer', background: formValues[field.key] === option ? 'rgba(34, 197, 94, 0.22)' : 'rgba(34, 197, 94, 0.06)', border: formValues[field.key] === option ? '1px solid rgba(34, 197, 94, 0.75)' : '1px solid rgba(34, 197, 94, 0.2)', color: formValues[field.key] === option ? '#f0fdf4' : 'var(--text-secondary)' }}>
                             {option}
                           </button>
                         ))}
@@ -135,8 +147,28 @@ function Questionnaire() {
             </div>
           )}
 
-          <button type="submit" className="btn-primary" disabled={submitting} style={{ width: '100%', padding: '1rem', fontSize: '1rem', opacity: submitting ? 0.7 : 1 }}>
-            {submitting ? 'Generating your plan...' : 'Generate My Retrofit Plan'}
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              fontSize: '1rem',
+              fontWeight: 700,
+              fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+              background: '#22c55e',
+              color: '#071810',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: submitting ? 'default' : 'pointer',
+              opacity: submitting ? 0.7 : 1,
+              boxShadow: '0 4px 18px rgba(34, 197, 94, 0.4)',
+              transition: 'background 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onMouseEnter={(e) => { if (!submitting) { e.currentTarget.style.background = '#16a34a'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(34,197,94,0.5)'; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = submitting ? '#22c55e' : '#22c55e'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(34,197,94,0.4)'; }}
+          >
+            {submitting ? 'Generating your plan…' : 'Generate My Retrofit Plan →'}
           </button>
         </form>
       </div>

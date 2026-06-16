@@ -85,7 +85,7 @@ function AddressAutocomplete({ value, onChange, disabled }) {
       ref={inputRef}
       type="text"
       className="input-premium"
-      placeholder="Enter your address (e.g. 123 Peachtree St NE, Atlanta, GA)"
+      placeholder="Enter your home address"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       autoComplete="street-address"
@@ -104,9 +104,7 @@ function LandingPage() {
   const handleSearch = async (e) => {
     e.preventDefault();
     const trimmed = address.trim();
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed) return;
 
     setLoading(true);
     setError('');
@@ -121,61 +119,156 @@ function LandingPage() {
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
+    <div style={{
+      minHeight: '100vh',
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center', 
+      alignItems: 'center',
       justifyContent: 'center',
       padding: '2rem',
-      background: 'radial-gradient(circle at 50% -20%, #1e293b, #0f172a)'
     }}>
-      <div className="glass-panel animate-fade-in" style={{ maxWidth: '600px', width: '100%', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-          <span className="text-gradient">RetroFi ATL</span>
+
+      {/* Background: photo of solar panels on a house roof */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: 'url(https://images.unsplash.com/photo-1640802396402-094375631000?q=80&w=2072&auto=format&fit=crop)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 40%',
+        zIndex: 0,
+      }} />
+
+      {/* Dark green gradient overlay for readability */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(160deg, rgba(7,24,16,0.68) 0%, rgba(7,24,16,0.92) 100%)',
+        zIndex: 1,
+      }} />
+
+      {/* Content */}
+      <div className="animate-fade-in" style={{
+        position: 'relative',
+        zIndex: 2,
+        maxWidth: '560px',
+        width: '100%',
+        textAlign: 'center',
+      }}>
+
+        {/* Badge */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          background: 'rgba(34, 197, 94, 0.25)',
+          border: '1px solid rgba(34, 197, 94, 0.3)',
+          borderRadius: '999px',
+          padding: '0.35rem 1rem',
+          marginBottom: '1.75rem',
+          fontSize: '0.75rem',
+          color: '#4ade80',
+          letterSpacing: '0.07em',
+          textTransform: 'uppercase',
+          fontWeight: 600,
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2L9.5 8.5H3L8 13l-2 7 6-4 6 4-2-7 5-4.5h-6.5L12 2z"/>
+          </svg>
+          AI-Powered Home Energy Planner
+        </div>
+
+        {/* Headline */}
+        <h1 style={{ fontSize: '3.75rem', fontWeight: 700, marginBottom: '1.25rem', lineHeight: 1.1 }}>
+          <span className="text-gradient">RetroFi</span>
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1.25rem', marginBottom: '2rem' }}>
-          Instantly discover how to cut your energy bills and carbon footprint. Enter your Atlanta home address to get your AI-powered retrofit plan.
+
+        {/* Subheadline */}
+        <p style={{
+          color: 'rgba(240, 253, 244, 0.75)',
+          fontSize: '1.15rem',
+          lineHeight: 1.7,
+          marginBottom: '2.5rem',
+        }}>
+          Discover the smartest upgrades for your home — cut energy costs, reduce your carbon footprint, and prioritize renewable energy.
         </p>
 
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-          <AddressAutocomplete value={address} onChange={setAddress} disabled={loading} />
-          {error && (
-            <p style={{ color: '#f87171', fontSize: '0.9rem', textAlign: 'left', margin: 0 }}>
-              {error}
-            </p>
-          )}
-          <button type="submit" className="btn-primary" style={{ padding: '1rem', fontSize: '1.1rem', opacity: loading ? 0.7 : 1 }} disabled={loading}>
-            {loading ? 'Looking up your property...' : 'Get Retrofit Plan'}
-          </button>
-        </form>
-      </div>
+        {/* Form card */}
+        <div className="glass-panel" style={{
+          padding: '1.75rem 2rem',
+          textAlign: 'left',
+          borderRadius: '20px',
+          background: 'rgba(10, 26, 20, 0.72)',
+          border: '1px solid rgba(34, 197, 94, 0.18)',
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            marginBottom: '0.6rem',
+          }}>
+            Your Home Address
+          </label>
 
-      {/* Decorative background elements */}
-      <div style={{
-        position: 'absolute',
-        top: '20%',
-        left: '10%',
-        width: '300px',
-        height: '300px',
-        background: 'var(--accent-primary)',
-        filter: 'blur(150px)',
-        opacity: '0.15',
-        zIndex: -1,
-        borderRadius: '50%'
-      }}></div>
-      <div style={{
-        position: 'absolute',
-        bottom: '20%',
-        right: '10%',
-        width: '400px',
-        height: '400px',
-        background: '#8b5cf6',
-        filter: 'blur(150px)',
-        opacity: '0.15',
-        zIndex: -1,
-        borderRadius: '50%'
-      }}></div>
+          <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <AddressAutocomplete value={address} onChange={setAddress} disabled={loading} />
+
+            {error && (
+              <p style={{ color: '#f87171', fontSize: '0.875rem', margin: 0 }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                background: '#22c55e',
+                color: '#071810',
+                border: 'none',
+                padding: '1rem 1.5rem',
+                borderRadius: '10px',
+                fontSize: '1rem',
+                fontWeight: 700,
+                cursor: loading ? 'default' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+                transition: 'background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease',
+                boxShadow: '0 4px 20px rgba(34, 197, 94, 0.45)',
+                letterSpacing: '0.01em',
+                fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  e.currentTarget.style.background = '#16a34a';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 6px 24px rgba(34, 197, 94, 0.55)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#22c55e';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(34, 197, 94, 0.45)';
+              }}
+            >
+              {loading ? 'Looking up your property…' : 'Get My Retrofit Plan →'}
+            </button>
+          </form>
+        </div>
+
+        {/* Trust signal */}
+        <p style={{
+          marginTop: '1.25rem',
+          color: 'rgba(189, 202, 220, 0.85)',
+          fontSize: '0.78rem',
+          letterSpacing: '0.03em',
+        }}>
+          Free &nbsp;·&nbsp; No account required &nbsp;·&nbsp; Results in seconds
+        </p>
+      </div>
     </div>
   );
 }
