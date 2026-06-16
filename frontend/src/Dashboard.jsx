@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { fetchSolarActionSteps } from './api';
+import { sequenceRetrofit, fetchSolarActionSteps } from './api';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -15,6 +15,10 @@ function Dashboard() {
   const result = location.state?.result;
   const [selectedOption, setSelectedOption] = useState(null);
   const [solarSteps, setSolarSteps] = useState({ loading: true, steps: [], installers: [], error: false });
+
+  const [rankedOptions, setRankedOptions] = useState(result?.calculation?.ranked_options || []);
+  const [focus, setFocus] = useState(result?.calculation?.sequencing_focus || 'balanced');
+  const [isResequencing, setIsResequencing] = useState(false);
 
   useEffect(() => {
     if (!result) navigate('/');
@@ -50,7 +54,25 @@ function Dashboard() {
   if (!result) return null;
 
   const calculation = result.calculation;
-  const allOptions = calculation.ranked_options || [];
+  const sequencedOptions = [...rankedOptions].sort(
+    (a, b) => a.recommended_sequence - b.recommended_sequence
+  );
+
+  const handleFocusChange = async (newFocus) => {
+    if (newFocus === focus || isResequencing) {
+      return;
+    }
+    setIsResequencing(true);
+    try {
+      const response = await sequenceRetrofit(rankedOptions, newFocus);
+      setRankedOptions(response.ranked_options);
+      setFocus(response.sequencing_focus);
+    } catch (error) {
+      console.error('Failed to re-sequence upgrades', error);
+    } finally {
+      setIsResequencing(false);
+    }
+  };
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
@@ -95,8 +117,12 @@ function Dashboard() {
 
       {/* Step cards — click to open modal */}
       <section style={{ marginBottom: '3rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-          {allOptions.map((option) => (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem' }}>
+          <h3 style={{ margin: 0 }}>What To Do First</h3>
+          <FocusToggle focus={focus} onChange={handleFocusChange} disabled={isResequencing} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', opacity: isResequencing ? 0.6 : 1, transition: 'opacity 0.15s ease' }}>
+          {sequencedOptions.map((option) => (
             <StepCard key={option.upgrade_key} option={option} onClick={() => setSelectedOption(option)} />
           ))}
         </div>
@@ -114,6 +140,43 @@ function Dashboard() {
   );
 }
 
+const FOCUS_OPTIONS = [
+  { key: 'balanced', label: 'Balanced' },
+  { key: 'cost', label: 'Lower Cost' },
+  { key: 'carbon', label: 'Lower Carbon' },
+];
+
+function FocusToggle({ focus, onChange, disabled }) {
+  return (
+    <div style={{ display: 'inline-flex', gap: '0.5rem', padding: '0.25rem', borderRadius: '999px', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+      {FOCUS_OPTIONS.map((option) => {
+        const isActive = option.key === focus;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => onChange(option.key)}
+            disabled={disabled}
+            style={{
+              padding: '0.4rem 1rem',
+              borderRadius: '999px',
+              border: 'none',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              cursor: disabled ? 'wait' : 'pointer',
+              background: isActive ? 'var(--accent-gradient)' : 'transparent',
+              color: isActive ? '#fff' : 'var(--text-secondary)',
+              transition: 'background 0.15s ease, color 0.15s ease',
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function StepCard({ option, onClick }) {
   return (
     <div
@@ -122,7 +185,7 @@ function StepCard({ option, onClick }) {
       style={{ padding: '1.25rem', borderTop: '4px solid var(--accent-primary)', cursor: 'pointer', userSelect: 'none' }}
     >
       <span style={{ color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.05em' }}>
-        STEP {option.rank}
+        STEP {option.recommended_sequence}
       </span>
       <h4 style={{ marginTop: '0.4rem', marginBottom: '0.75rem' }}>{option.name}</h4>
       <div style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
@@ -197,7 +260,7 @@ function UpgradeModal({ option, onClose, solarSteps }) {
 
         {/* Header */}
         <span style={{ color: 'var(--accent-primary)', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.05em' }}>
-          STEP {option.rank}
+          STEP {option.recommended_sequence}
         </span>
         <h3 style={{ marginTop: '0.4rem', marginBottom: '0.5rem' }}>{option.name}</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>

@@ -25,7 +25,6 @@ def _answers():
         "square_footage": 1800,
         "num_occupants": "3",
         "primary_heating_fuel": "Gas",
-        "primary_goal": "Lower bills",
         "_property_meta": {
             "formatted_address": "123 Peachtree St NE, Atlanta, GA",
             "zip_code": "30308",

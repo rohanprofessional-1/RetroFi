@@ -55,12 +55,6 @@ PRIORITY_FIELDS = [
         ["Yes", "No", "Not sure"],
     ),
     (
-        "primary_goal",
-        "What is your primary goal?",
-        "choice",
-        ["Lower bills", "Backup power during outages", "Reduce carbon footprint", "Increase home value"],
-    ),
-    (
         "square_footage",
         "What is the approximate square footage of your home?",
         "choice",

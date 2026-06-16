@@ -11,6 +11,8 @@ from schemas import (
     RetrofitCalculationRequest,
     RetrofitCalculationResponse,
     RetrofitSummaryResponse,
+    SequenceRetrofitRequest,
+    SequenceRetrofitResponse,
     SolarActionStepsRequest,
     SolarActionStepsResponse,
     SolarStep,
@@ -21,8 +23,9 @@ from services.property_data import get_property_and_solar_data
 from services.questionnaire import get_next_question
 from services.rentcast_api import get_pre_filled_answers
 from services.retrofit_analyzer import analyze_retrofit_incentives
-from services.retrofit_calculator import calculate_retrofit_options
+from services.retrofit_calculator import calculate_retrofit_options, compute_efficiency_lookup
 from services.retrofit_request_builder import build_retrofit_calculation_request
+from services.sequencing import sequence_options
 from services.solar_action_steps import generate_solar_steps
 
 
@@ -96,6 +99,15 @@ def calculate_retrofit(request: RetrofitCalculationRequest):
 def summarize_retrofit(request: RetrofitCalculationRequest):
     calculation = calculate_retrofit_options(request)
     return summarize_retrofit_calculation(calculation)
+
+
+@app.post("/sequence-retrofit/", response_model=SequenceRetrofitResponse)
+def sequence_retrofit(request: SequenceRetrofitRequest):
+    efficiency_lookup = compute_efficiency_lookup(request.ranked_options)
+    sequenced = sequence_options(
+        request.ranked_options, focus=request.focus, efficiency_lookup=efficiency_lookup
+    )
+    return SequenceRetrofitResponse(ranked_options=sequenced, sequencing_focus=request.focus)
 
 
 @app.post("/property-lookup")
