@@ -6,8 +6,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from schemas import (
+    ActionStepsRequest,
+    ActionStepsResponse,
     IncentiveAnalysisRequest,
     IncentiveAnalysisResponse,
+    NearbyInstaller,
     RetrofitCalculationRequest,
     RetrofitCalculationResponse,
     RetrofitSummaryResponse,
@@ -17,8 +20,9 @@ from schemas import (
     SolarActionStepsResponse,
     SolarStep,
 )
+from services.air_sealing_steps import generate_air_sealing_steps
 from services.llm_summary import summarize_retrofit_calculation
-from services.nearby_contractors import find_solar_installers
+from services.nearby_contractors import find_nearby_contractors, find_solar_installers
 from services.property_data import get_property_and_solar_data
 from services.questionnaire import get_next_question
 from services.rentcast_api import get_pre_filled_answers
@@ -150,7 +154,10 @@ async def generate_plan(request: GeneratePlanRequest):
     )
     calculation = calculate_retrofit_options(calculation_request)
     summary = summarize_retrofit_calculation(calculation)
-    return summary.model_copy(update={"solar_data": solar_data})
+    return summary.model_copy(update={
+        "solar_data": solar_data,
+        "property_profile": calculation_request.property.model_dump(),
+    })
 
 
 @app.post("/generate-plan/", response_model=RetrofitSummaryResponse)
@@ -179,6 +186,36 @@ async def solar_action_steps(request: SolarActionStepsRequest):
         nearby_installers=installers,
         source="ai" if steps else "fallback",
     )
+
+
+@app.post("/action-steps", response_model=ActionStepsResponse)
+async def action_steps(request: ActionStepsRequest):
+    coords = request.coordinates or {}
+    lat = coords.get("lat")
+    lng = coords.get("lng")
+    profile = request.property_profile or {}
+
+    if request.upgrade_key == "air_sealing":
+        contractors = []
+        if lat is not None and lng is not None:
+            contractors = await find_nearby_contractors(lat, lng, "weatherization air sealing contractor")
+        steps = generate_air_sealing_steps(
+            address=request.address,
+            gross_cost=request.gross_cost,
+            net_cost=request.net_cost,
+            annual_savings=request.annual_savings,
+            payback_years=request.payback_years,
+            matched_incentives=request.matched_incentives,
+            property_profile=profile,
+            contractors=contractors,
+        )
+        return ActionStepsResponse(
+            steps=[SolarStep(**s) for s in steps],
+            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
+            source="ai" if steps else "fallback",
+        )
+
+    return ActionStepsResponse(steps=[], nearby_contractors=[], source="unsupported")
 
 
 def _money_to_float(value) -> float:
