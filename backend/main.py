@@ -50,6 +50,34 @@ except ModuleNotFoundError:
 
 app = FastAPI(title="RetroFi ATL API", description="AI-powered retrofit planner API")
 
+
+def _build_cors_origins() -> list[str]:
+    origins = [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://localhost:5174",
+    ]
+    raw = os.getenv("FRONTEND_URLS") or os.getenv("FRONTEND_URL", "")
+    for part in raw.split(","):
+        url = part.strip().rstrip("/")
+        if not url:
+            continue
+        origins.append(url)
+        # Firebase Hosting is available on both domains.
+        if url.endswith(".web.app"):
+            origins.append(url.replace(".web.app", ".firebaseapp.com"))
+        elif url.endswith(".firebaseapp.com"):
+            origins.append(url.replace(".firebaseapp.com", ".web.app"))
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for origin in origins:
+        if origin not in seen:
+            seen.add(origin)
+            unique.append(origin)
+    return unique
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -91,6 +119,11 @@ def on_startup():
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the RetroFi ATL API"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 
 @app.get("/health")
 def health_check():

@@ -51,10 +51,12 @@ share/python-wheels/
 MANIFEST
 
 # Virtual Environment
-venv/
 .env
+!.env.production
+!.env.production.example
 .venv
 env/
+venv/
 venv.bak/
 
 # Database
@@ -62,3 +64,6 @@ venv.bak/
 *.sqlite3
 database.db
 backend/data/chroma/
+
+# GCP
+.firebaserc
