@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import json
 import sys
 from datetime import datetime, timezone
@@ -7,6 +8,7 @@ from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_ROOT.parent
+DATA_DIR = BACKEND_ROOT / "data"
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from services.incentive_schema_extractor import extract_records
@@ -71,6 +73,21 @@ def main():
         action="store_true",
         help="Only index state-specific folders, skip the main sources directory.",
     )
+    parser.add_argument(
+        "--extract-programs",
+        action="store_true",
+        help="Run LLM extraction to update incentive_programs_{state}.json from source documents.",
+    )
+    parser.add_argument(
+        "--extract-model",
+        default="qwen2.5:7b",
+        help="Ollama model to use for LLM extraction (default: qwen2.5:7b).",
+    )
+    parser.add_argument(
+        "--extract-base-url",
+        default="http://127.0.0.1:11434",
+        help="Ollama base URL for LLM extraction (default: http://127.0.0.1:11434).",
+    )
     args = parser.parse_args()
 
     sources_dir = Path(args.sources_dir)
@@ -114,6 +131,60 @@ def main():
         state_manifest_path = BACKEND_ROOT / "data" / f"source_index_manifest_{state_code}.json"
         state_manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         print(f"  Manifest written to {state_manifest_path}")
+
+    # LLM extraction for structured incentive programs
+    if args.extract_programs:
+        _run_extraction(sources_dir, args.extract_model, args.extract_base_url)
+
+
+def _run_extraction(sources_dir: Path, model: str, base_url: str):
+    """Run LLM extraction pipeline for each state directory."""
+    from services.llm_extractor import extract_programs_from_chunks
+
+    print("\n" + "=" * 60)
+    print("LLM EXTRACTION: Generating incentive_programs_{state}.json")
+    print(f"Model: {model}  Base URL: {base_url}")
+    print("=" * 60)
+
+    for state_code in sorted(STATE_CODES):
+        state_dir = sources_dir / state_code
+        if not state_dir.exists():
+            continue
+
+        print(f"\nExtracting programs for: {state_code.upper()}")
+
+        # Parse and chunk the source documents
+        parsed_sources = parse_sources(state_dir)
+        if not parsed_sources:
+            print(f"  No source documents found")
+            continue
+
+        chunks = chunk_sources(parsed_sources)
+        print(f"  {len(parsed_sources)} files, {len(chunks)} chunks")
+
+        # Run LLM extraction
+        programs, review_items = extract_programs_from_chunks(
+            chunks=chunks,
+            state=state_code,
+            model=model,
+            base_url=base_url,
+        )
+
+        # Write per-state programs file
+        output_path = DATA_DIR / f"incentive_programs_{state_code}.json"
+        programs_data = [p.model_dump(mode="json") for p in programs]
+        output_path.write_text(json.dumps(programs_data, indent=2), encoding="utf-8")
+        print(f"  Wrote {len(programs)} programs to {output_path.name}")
+
+        # Write review queue if any
+        if review_items:
+            review_path = DATA_DIR / f"review_queue_{state_code}.json"
+            review_data = [r.model_dump(mode="json") for r in review_items]
+            review_path.write_text(json.dumps(review_data, indent=2), encoding="utf-8")
+            print(f"  Wrote {len(review_items)} items to {review_path.name} (needs human review)")
+
+    print("\nExtraction complete.")
+    print(f"Note: incentive_programs_federal.json is hand-curated and was NOT modified.")
 
 
 if __name__ == "__main__":

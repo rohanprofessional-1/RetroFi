@@ -33,6 +33,15 @@ class IncentiveMatch(BaseModel):
     eligibility_notes: str
     stackable: bool
     citation_id: str
+    # New structured fields (Phase 1)
+    cap_category: Optional[str] = None
+    resets_annually: Optional[bool] = None
+    tax_liability_required: Optional[bool] = None
+    amount_type: Optional[str] = None
+    subsidy_basis_reduction: Optional[bool] = None
+    cap_pool_note: Optional[str] = None
+    tax_liability_note: Optional[str] = None
+    exclusive_with: List[str] = Field(default_factory=list)
 
 
 class UpgradeAnalysis(BaseModel):

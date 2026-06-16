@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.request import Request, urlopen
 
+from services.incentive_program_schema import (
+    CapPool,
+    IncentiveProgram,
+    build_cap_pools,
+    load_all_programs,
+    load_programs,
+)
+
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 DEBUG_LOG_PATH = Path("/Users/rohannair/Desktop/Shenanigans/retrofi-atl/.cursor/debug-7b06a5.log")
@@ -124,8 +132,22 @@ class IncentiveIndex:
         costs_path: Optional[Path] = None,
         use_vector: bool = True,
     ):
+        # Legacy seed data (backward compatibility fallback)
         self.incentives = _load_json(incentives_path or DATA_DIR / "incentives_seed.json")
         self.costs = _load_json(costs_path or DATA_DIR / "install_costs_seed.json")
+
+        # ---- NEW: Structured program data (calculation layer) ----
+        self.federal_programs = load_programs(DATA_DIR / "incentive_programs_federal.json")
+        self.state_programs: Dict[str, List[IncentiveProgram]] = {}
+        for state_code in STATE_CODES:
+            state_path = DATA_DIR / f"incentive_programs_{state_code}.json"
+            if state_path.exists():
+                self.state_programs[state_code] = load_programs(state_path)
+
+        self.cap_pools: Dict[str, CapPool] = {}
+        self._rebuild_cap_pools()
+
+        # ---- Citation layer (ChromaDB vector stores) ----
         self.vector_store = None
         self.state_vector_stores = {}
         if use_vector:
@@ -156,6 +178,171 @@ class IncentiveIndex:
                 self.vector_store = None
                 self.state_vector_stores = {}
 
+    def _rebuild_cap_pools(self):
+        """Build cap pools from all loaded programs."""
+        all_programs = list(self.federal_programs)
+        for state_programs in self.state_programs.values():
+            all_programs.extend(state_programs)
+        self.cap_pools = build_cap_pools(all_programs)
+
+    # ----------------------------------------------------------------
+    # NEW: Structured program access (calculation layer)
+    # ----------------------------------------------------------------
+
+    def get_programs_for_location(self, state_code: Optional[str] = None) -> List[IncentiveProgram]:
+        """Return federal + state programs for the user's location."""
+        programs = list(self.federal_programs)
+        if state_code and state_code in self.state_programs:
+            programs.extend(self.state_programs[state_code])
+        return programs
+
+    def get_programs_for_upgrade(
+        self,
+        upgrade_key: str,
+        query: Any,
+        tax_year: int = 2026,
+    ) -> List[IncentiveProgram]:
+        """Return programs applicable to an upgrade, filtered by location and eligibility."""
+        state_code = _state_code_for_query(query)
+        all_programs = self.get_programs_for_location(state_code)
+        utility = (_get_value(query, "utility", "") or "").lower()
+        household_income = _get_value(query, "household_income")
+
+        matched: List[IncentiveProgram] = []
+        for program in all_programs:
+            # Must cover this upgrade
+            if upgrade_key not in program.eligible_upgrades:
+                continue
+
+            # Check expiration
+            if program.expires_year is not None and tax_year > program.expires_year:
+                continue
+
+            # Check program status
+            if program.program_status not in ("active", "pending"):
+                continue
+
+            # Utility territory filter
+            if program.utility_territory:
+                if utility and program.utility_territory.lower() != utility:
+                    continue
+
+            # Income check (basic — full AMI check would need geographic data)
+            if program.income_max_absolute is not None and household_income is not None:
+                if household_income > program.income_max_absolute:
+                    continue
+
+            matched.append(program)
+
+        return matched
+
+    def search_structured_incentives(
+        self, query: Any, limit: int = 12,
+    ) -> List[Dict[str, Any]]:
+        """Search incentives using structured program data.
+
+        Returns dicts in the same shape as the legacy search_incentives()
+        for backward compatibility with retrofit_calculator.py.
+        """
+        categories = self.infer_upgrade_categories(query)
+        state_code = _state_code_for_query(query)
+        all_programs = self.get_programs_for_location(state_code)
+
+        if not all_programs:
+            return []
+
+        utility = (_get_value(query, "utility", "") or "").lower()
+        household_income = _get_value(query, "household_income")
+        tax_liability = _get_value(query, "tax_liability_estimate")
+
+        results: List[Dict[str, Any]] = []
+        for program in all_programs:
+            upgrade_matches = set(program.eligible_upgrades).intersection(categories)
+            if not upgrade_matches:
+                continue
+
+            if program.program_status not in ("active", "pending"):
+                continue
+
+            # Utility territory filter
+            if program.utility_territory:
+                if utility and program.utility_territory.lower() != utility:
+                    continue
+                elif not utility:
+                    pass  # Include but flag as needs verification
+
+            # Income eligibility
+            eligibility_status = "likely_eligible"
+            if program.income_max_absolute is not None:
+                if household_income is None:
+                    eligibility_status = "needs_income_verification"
+                elif household_income > program.income_max_absolute:
+                    continue  # Skip entirely
+            elif program.income_tier and program.income_tier != "any":
+                if household_income is None:
+                    eligibility_status = "needs_income_verification"
+
+            # Tax liability warning
+            tax_liability_note = None
+            if program.tax_liability_required and tax_liability is not None:
+                cap = program.amount_rule.annual_cap
+                if cap and tax_liability < cap:
+                    tax_liability_note = (
+                        f"Your estimated tax liability of ${tax_liability:,.0f} may limit "
+                        f"this ${cap:,.0f} credit"
+                    )
+
+            # Cap pool note
+            cap_pool_note = None
+            if program.cap_category and program.cap_category in self.cap_pools:
+                pool = self.cap_pools[program.cap_category]
+                if len(pool.program_ids) > 1:
+                    other_names = [
+                        p.name for p in all_programs
+                        if p.program_id in pool.program_ids and p.program_id != program.program_id
+                    ]
+                    if other_names and pool.annual_cap:
+                        cap_pool_note = (
+                            f"Shares ${pool.annual_cap:,.0f} {'annual' if pool.resets_annually else 'lifetime'} "
+                            f"cap with {', '.join(other_names)}"
+                        )
+
+            # Build legacy-compatible dict
+            amount_rule_dict = _program_to_amount_rule(program)
+
+            results.append({
+                "id": program.program_id,
+                "name": program.name,
+                "source": program.source_program_id or program.geographic_scope,
+                "source_url": program.source_url,
+                "incentive_type": _program_incentive_type(program),
+                "eligible_upgrades": program.eligible_upgrades,
+                "geographic_scope": _program_geographic_scope(program),
+                "utility": program.utility_territory,
+                "amount_rule": amount_rule_dict,
+                "stackable": program.stackable,
+                "eligibility": _program_eligibility_text(program),
+                "citation_snippet": f"{program.name} — {_program_incentive_type(program)}",
+                "score": 10 * len(upgrade_matches),
+                "matched_upgrade_keys": sorted(upgrade_matches),
+                "eligibility_status": eligibility_status,
+                "amount_description": amount_description(amount_rule_dict),
+                # New structured fields
+                "cap_category": program.cap_category,
+                "resets_annually": program.resets_annually,
+                "tax_liability_required": program.tax_liability_required,
+                "amount_type": program.amount_rule.amount_type,
+                "subsidy_basis_reduction": program.subsidy_basis_reduction,
+                "cap_pool_note": cap_pool_note,
+                "tax_liability_note": tax_liability_note,
+                "exclusive_with": program.exclusive_with,
+                "data_confidence": program.data_confidence,
+                "_program": program,  # Attach full program for calculator access
+            })
+
+        results.sort(key=lambda d: d["score"], reverse=True)
+        return results[:limit]
+
     def infer_upgrade_categories(self, query: Any) -> List[str]:
         interests = _get_value(query, "upgrade_interests", []) or []
         if not interests:
@@ -179,6 +366,12 @@ class IncentiveIndex:
         return list(dict.fromkeys(categories)) or [cost["upgrade_key"] for cost in self.costs]
 
     def search_incentives(self, query: Any, limit: int = 12) -> List[Dict[str, Any]]:
+        # Prefer structured program data when available
+        structured = self.search_structured_incentives(query, limit)
+        if structured:
+            return structured
+
+        # Fall back to vector search, then legacy seed data
         if self.vector_store or self.state_vector_stores:
             matches = self._search_vector_incentives(query, limit)
             if matches:
@@ -434,3 +627,67 @@ def _join_notes(*values: str) -> str:
 def _snippet(raw_text: str, length: int = 360) -> str:
     text = re.sub(r"\s+", " ", raw_text).strip()
     return text[:length]
+
+
+# ---------------------------------------------------------------------------
+# IncentiveProgram → legacy dict converters
+# ---------------------------------------------------------------------------
+
+def _program_to_amount_rule(program: IncentiveProgram) -> Dict[str, Any]:
+    """Convert an IncentiveProgram's AmountRule to the legacy amount_rule dict."""
+    rule = program.amount_rule
+    if rule.amount_flat is not None:
+        return {"type": "fixed", "amount": rule.amount_flat}
+    if rule.amount_percent is not None:
+        return {
+            "type": "percentage_cap",
+            "percent": rule.amount_percent,
+            "cap": rule.annual_cap or 0,
+        }
+    return {"type": "source_defined", "amount": 0}
+
+
+def _program_incentive_type(program: IncentiveProgram) -> str:
+    """Map amount_type to user-facing incentive type label."""
+    mapping = {
+        "tax_credit": "Tax Credit",
+        "rebate": "Rebate",
+        "grant": "Grant",
+        "loan": "Loan",
+        "rate_discount": "Rate Discount",
+    }
+    return mapping.get(program.amount_rule.amount_type, "Incentive")
+
+
+def _program_geographic_scope(program: IncentiveProgram) -> List[str]:
+    """Build legacy geographic_scope list from program fields."""
+    scopes = []
+    if program.geographic_scope == "federal":
+        scopes.append("federal")
+    if program.state:
+        scopes.append(program.state)
+    if program.geographic_scope in ("state", "utility", "local"):
+        scopes.append(program.geographic_scope)
+    return scopes or ["federal"]
+
+
+def _program_eligibility_text(program: IncentiveProgram) -> str:
+    """Generate eligibility text from structured program fields."""
+    parts = []
+    if program.income_tier and program.income_tier != "any":
+        parts.append(f"Income: {program.income_tier.replace('_', ' ')}")
+    if program.income_max_absolute:
+        parts.append(f"Max income: ${program.income_max_absolute:,.0f}")
+    if program.tax_liability_required:
+        parts.append("Requires tax liability")
+    if program.ownership_required:
+        parts.append("Owner-occupied")
+    if program.contractor_required is True:
+        parts.append("Licensed contractor required")
+    elif program.contractor_required is False:
+        parts.append("DIY eligible")
+    if program.energy_audit_required:
+        parts.append("Energy audit required")
+    if program.equipment_certification:
+        parts.append(program.equipment_certification)
+    return ". ".join(parts) + "." if parts else "See program guidelines for eligibility details."

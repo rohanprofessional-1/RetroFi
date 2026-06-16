@@ -115,15 +115,21 @@ def _call_local_llm(prompt: str, base_url: str, model: str) -> Tuple[str, str]:
         }
     }
     
-    # We use OpenAI compatible endpoint for Ollama
+    headers = {
+        "Content-Type": "application/json",
+    }
+    
+    api_key, _ = _config_value("LLM_API_KEY")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    # We use OpenAI compatible endpoint for Ollama or external providers
     endpoint = f"{base_url.rstrip('/')}/v1/chat/completions"
     
     request = Request(
         endpoint,
         data=json.dumps(body).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
     try:

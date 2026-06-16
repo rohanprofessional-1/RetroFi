@@ -311,18 +311,35 @@ def _matched_incentives_for_upgrade(
             source_url=document.get("source_url"),
             snippet=document["citation_snippet"],
         )
+
+        # Use structured program object if available for better calculation
+        program = document.get("_program")
+        if program:
+            amount = round(program.calculate_amount(gross_cost), 2)
+        else:
+            amount = round(_calculate_incentive_amount(gross_cost, document), 2)
+
         matches.append(
             IncentiveMatch(
                 id=document["id"],
                 name=document["name"],
                 source=document["source"],
                 incentive_type=document["incentive_type"],
-                amount=round(_calculate_incentive_amount(gross_cost, document), 2),
+                amount=amount,
                 amount_description=document["amount_description"],
                 eligible_upgrades=document["eligible_upgrades"],
                 eligibility_notes=_eligibility_notes(document),
                 stackable=document["stackable"],
                 citation_id=citation_id,
+                # New structured fields
+                cap_category=document.get("cap_category"),
+                resets_annually=document.get("resets_annually"),
+                tax_liability_required=document.get("tax_liability_required"),
+                amount_type=document.get("amount_type"),
+                subsidy_basis_reduction=document.get("subsidy_basis_reduction"),
+                cap_pool_note=document.get("cap_pool_note"),
+                tax_liability_note=document.get("tax_liability_note"),
+                exclusive_with=document.get("exclusive_with", []),
             )
         )
     return matches
@@ -340,8 +357,17 @@ def _calculate_incentive_amount(gross_cost: float, document: Dict) -> float:
 
 
 def _select_stackable_incentives(incentives: List[IncentiveMatch]) -> List[IncentiveMatch]:
-    stackable = [incentive for incentive in incentives if incentive.stackable]
-    non_stackable = [incentive for incentive in incentives if not incentive.stackable]
+    # Filter out exclusive conflicts
+    selected = list(incentives)
+    exclusion_ids = set()
+    for incentive in selected:
+        exclusion_ids.update(incentive.exclusive_with)
+
+    if exclusion_ids:
+        selected = [i for i in selected if i.id not in exclusion_ids]
+
+    stackable = [incentive for incentive in selected if incentive.stackable]
+    non_stackable = [incentive for incentive in selected if not incentive.stackable]
     if not non_stackable:
         return stackable
     stackable_total = sum(incentive.amount for incentive in stackable)
