@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 
@@ -35,6 +36,7 @@ from services.retrofit_calculator import calculate_retrofit_options, compute_eff
 from services.retrofit_request_builder import build_retrofit_calculation_request
 from services.sequencing import sequence_options
 from services.solar_action_steps import generate_solar_steps
+import services.cache as cache
 
 
 BACKEND_ROOT = Path(__file__).resolve().parent
@@ -213,6 +215,13 @@ async def generate_plan_slash(request: GeneratePlanRequest):
 
 @app.post("/solar-action-steps", response_model=SolarActionStepsResponse)
 async def solar_action_steps(request: SolarActionStepsRequest):
+    cache_key = cache.make_solar_steps_key(
+        request.address, request.solar_data, request.matched_incentives
+    )
+    cached = cache.get(cache_key)
+    if cached:
+        return SolarActionStepsResponse(**cached)
+
     coords = request.solar_data.get("coordinates") or {}
     lat = coords.get("lat")
     lng = coords.get("lng")
@@ -227,11 +236,13 @@ async def solar_action_steps(request: SolarActionStepsRequest):
         address=request.address,
         installers=installers,
     )
-    return SolarActionStepsResponse(
+    result = dict(
         steps=[SolarStep(**s) for s in steps],
         nearby_installers=installers,
         source="ai" if steps else "fallback",
     )
+    cache.set(cache_key, result)
+    return SolarActionStepsResponse(**result)
 
 
 @app.post("/action-steps", response_model=ActionStepsResponse)
@@ -240,6 +251,15 @@ async def action_steps(request: ActionStepsRequest):
     lat = coords.get("lat")
     lng = coords.get("lng")
     profile = request.property_profile or {}
+
+    cache_key = cache.make_action_steps_key(
+        request.upgrade_key, request.address, profile,
+        request.matched_incentives, request.gross_cost,
+        request.net_cost, request.annual_savings, request.payback_years,
+    )
+    cached = cache.get(cache_key)
+    if cached:
+        return ActionStepsResponse(**cached)
 
     if request.upgrade_key == "attic_insulation":
         contractors = []
@@ -255,13 +275,8 @@ async def action_steps(request: ActionStepsRequest):
             property_profile=profile,
             contractors=contractors,
         )
-        return ActionStepsResponse(
-            steps=[SolarStep(**s) for s in steps],
-            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
-            source="ai" if steps else "fallback",
-        )
 
-    if request.upgrade_key == "air_sealing":
+    elif request.upgrade_key == "air_sealing":
         contractors = []
         if lat is not None and lng is not None:
             contractors = await find_nearby_contractors(lat, lng, "weatherization air sealing contractor")
@@ -275,17 +290,16 @@ async def action_steps(request: ActionStepsRequest):
             property_profile=profile,
             contractors=contractors,
         )
-        return ActionStepsResponse(
-            steps=[SolarStep(**s) for s in steps],
-            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
-            source="ai" if steps else "fallback",
-        )
 
-    if request.upgrade_key == "heat_pump":
-        contractors = []
-        if lat is not None and lng is not None:
-            contractors = await find_nearby_contractors(lat, lng, "heat pump HVAC installation contractor")
-        rates = await get_utility_rates(request.address)
+    elif request.upgrade_key == "heat_pump":
+        contractors_task = (
+            find_nearby_contractors(lat, lng, "heat pump HVAC installation contractor")
+            if lat is not None and lng is not None
+            else asyncio.sleep(0, result=[])
+        )
+        contractors, rates = await asyncio.gather(
+            contractors_task, get_utility_rates(request.address)
+        )
         steps = generate_heat_pump_steps(
             address=request.address,
             gross_cost=request.gross_cost,
@@ -297,17 +311,16 @@ async def action_steps(request: ActionStepsRequest):
             rates=rates,
             contractors=contractors,
         )
-        return ActionStepsResponse(
-            steps=[SolarStep(**s) for s in steps],
-            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
-            source="ai" if steps else "fallback",
-        )
 
-    if request.upgrade_key == "heat_pump_water_heater":
-        contractors = []
-        if lat is not None and lng is not None:
-            contractors = await find_nearby_contractors(lat, lng, "heat pump water heater plumber installation")
-        rates = await get_utility_rates(request.address)
+    elif request.upgrade_key == "heat_pump_water_heater":
+        contractors_task = (
+            find_nearby_contractors(lat, lng, "heat pump water heater plumber installation")
+            if lat is not None and lng is not None
+            else asyncio.sleep(0, result=[])
+        )
+        contractors, rates = await asyncio.gather(
+            contractors_task, get_utility_rates(request.address)
+        )
         steps = generate_heat_pump_water_heater_steps(
             address=request.address,
             gross_cost=request.gross_cost,
@@ -319,13 +332,17 @@ async def action_steps(request: ActionStepsRequest):
             rates=rates,
             contractors=contractors,
         )
-        return ActionStepsResponse(
-            steps=[SolarStep(**s) for s in steps],
-            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
-            source="ai" if steps else "fallback",
-        )
 
-    return ActionStepsResponse(steps=[], nearby_contractors=[], source="unsupported")
+    else:
+        return ActionStepsResponse(steps=[], nearby_contractors=[], source="unsupported")
+
+    result = dict(
+        steps=[SolarStep(**s) for s in steps],
+        nearby_contractors=[NearbyInstaller(**c) for c in contractors],
+        source="ai" if steps else "fallback",
+    )
+    cache.set(cache_key, result)
+    return ActionStepsResponse(**result)
 
 
 def _money_to_float(value) -> float:
