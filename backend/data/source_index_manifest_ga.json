@@ -1,0 +1,51 @@
+{
+  "indexed_at": "2026-06-16T03:03:05.060619+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/ga",
+  "collection_name": "retrofi_incentive_sources_ga",
+  "collection_count": 27,
+  "files": [
+    {
+      "path": "sources/ga/Energy Efficient Home Improvement Credit _ Internal Revenue Service.html",
+      "sha256": "6463cd5645d37b2358bbe3e4107f0f26b5b0a8e475d444b8ffc61066eef08d54",
+      "parser": "html",
+      "source_type": "irs_html",
+      "title": "Energy Efficient Home Improvement Credit  Copy link Find any service",
+      "document_date": "2023-03-23",
+      "warnings": []
+    },
+    {
+      "path": "sources/ga/Energy Efficient Home Improvement Credit qualified manufacturer requirements _ Internal Revenue Service.html",
+      "sha256": "5da13b11197e0584ace681cdd6a7ff0cbaa06001ff3017c38cbc9074cbfccae9",
+      "parser": "html",
+      "source_type": "irs_html",
+      "title": "Energy Efficient Home Improvement Credit qualified manufacturer requirements  Copy link Find any service",
+      "document_date": "2024-10-23",
+      "warnings": []
+    },
+    {
+      "path": "sources/ga/HEAR DIY Webpage - HEAR-DIY-Pathway.pdf",
+      "sha256": "1a5d35a2ef3795aff51b1dc7a61c6d5031b37529990279a259daa232923a765c",
+      "parser": "pdf",
+      "source_type": "state_rebate_pdf",
+      "title": "HEAR DIY Webpage - HEAR-DIY-Pathway",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ga/heip-sf-preconditions.pdf",
+      "sha256": "615189e2db164ee2e062020f74d4f548a9f7fa450f4c656d3958a1019c2aa490",
+      "parser": "pdf_garbled",
+      "source_type": "utility_rebate_pdf",
+      "title": "heip-sf-preconditions",
+      "document_date": null,
+      "warnings": [
+        "Extracted PDF text appears garbled; OCR or manual review is recommended."
+      ]
+    }
+  ],
+  "counts": {
+    "files_parsed": 4,
+    "chunks_created": 23,
+    "records_indexed": 27
+  }
+}
