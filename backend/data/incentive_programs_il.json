@@ -13,13 +13,8 @@
     ],
     "amount_rule": {
       "amount_type": "rebate",
-      "amount_flat": null,
-      "amount_percent": null,
-      "annual_cap": null,
-      "lifetime_cap": null,
-      "per_unit_rate": null,
-      "per_unit_basis": null,
-      "min_project_cost": null
+      "amount_percent": 0.5,
+      "annual_cap": 4000
     },
     "cap_category": null,
     "resets_annually": false,
@@ -50,7 +45,8 @@
     "state": "il",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Rebate is 50% of eligible costs; cap is $2,000 for standard efficiency, $4,000 for high efficiency. This uses the high-efficiency cap."
   },
   {
     "program_id": "il-50122-home-electrification-appliance-rebate",
@@ -66,10 +62,10 @@
     ],
     "amount_rule": {
       "amount_type": "rebate",
-      "amount_flat": 14000.0,
-      "amount_percent": null,
+      "amount_flat": null,
+      "amount_percent": 1.0,
       "annual_cap": null,
-      "lifetime_cap": null,
+      "lifetime_cap": 14000,
       "per_unit_rate": null,
       "per_unit_basis": null,
       "min_project_cost": null
@@ -97,12 +93,13 @@
     "energy_audit_required": false,
     "program_status": "pending",
     "availability_type": null,
-    "data_confidence": "medium",
+    "data_confidence": "low",
     "last_verified_date": null,
     "geographic_scope": "state",
     "state": "il",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "$14,000 is the household lifetime cap across all eligible appliances, not per upgrade. Per-appliance limits apply: HPWH $1,750; heat pump dryer $840; electric stove/cooktop $840; insulation $1,600; electrical panel $4,000."
   }
 ]

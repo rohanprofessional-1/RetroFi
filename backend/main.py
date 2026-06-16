@@ -205,6 +205,7 @@ async def generate_plan(request: GeneratePlanRequest):
     return summary.model_copy(update={
         "solar_data": solar_data,
         "property_profile": calculation_request.property.model_dump(),
+        "calculation_request": calculation_request.model_dump(),
     })
 
 
