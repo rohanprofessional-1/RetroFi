@@ -83,7 +83,13 @@ class ChromaVectorStore:
         self.collection.upsert(
             ids=[record.id for record in records],
             documents=[record.raw_text_chunk for record in records],
-            metadatas=[_sanitize_metadata(record.to_metadata()) for record in records],
+            metadatas=[
+                _sanitize_metadata({
+                    **record.to_metadata(),
+                    "linked_program_id": record.program_id,
+                })
+                for record in records
+            ],
         )
         return len(records)
 

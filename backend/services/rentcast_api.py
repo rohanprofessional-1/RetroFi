@@ -28,6 +28,8 @@ def fetch_property_data(address: str) -> dict:
         params={"address": address},
         timeout=10.0,
     )
+    if response.status_code == 404:
+        raise ValueError(f"This address isn't supported. Please try a different address.")
     response.raise_for_status()
 
     records = response.json()

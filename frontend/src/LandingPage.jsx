@@ -95,11 +95,48 @@ function AddressAutocomplete({ value, onChange, disabled }) {
   );
 }
 
+async function reverseGeocode(lat, lng, apiKey) {
+  const res = await fetch(
+    `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
+  );
+  const data = await res.json();
+  const result = data.results?.[0];
+  if (!result) throw new Error('No address found for your location.');
+  return result.formatted_address;
+}
+
 function LandingPage() {
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  const handleUseLocation = async () => {
+    if (!navigator.geolocation) {
+      setError('Your browser does not support geolocation.');
+      return;
+    }
+    setLocating(true);
+    setError('');
+    try {
+      const position = await new Promise((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+      );
+      const { latitude: lat, longitude: lng } = position.coords;
+      const { api_key: apiKey } = await getGoogleMapsConfig();
+      const resolved = await reverseGeocode(lat, lng, apiKey);
+      setAddress(resolved);
+    } catch (err) {
+      if (err.code === 1) {
+        setError('Location access was denied. Please enter your address manually.');
+      } else {
+        setError('Could not detect your location. Please enter your address manually.');
+      }
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -215,7 +252,41 @@ function LandingPage() {
           </label>
 
           <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-            <AddressAutocomplete value={address} onChange={setAddress} disabled={loading} />
+            <AddressAutocomplete value={address} onChange={setAddress} disabled={loading || locating} />
+
+            <button
+              type="button"
+              onClick={handleUseLocation}
+              disabled={locating || loading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: 'none',
+                border: 'none',
+                padding: '0.15rem 0',
+                cursor: locating || loading ? 'default' : 'pointer',
+                color: locating ? 'rgba(74, 222, 128, 0.5)' : 'rgba(74, 222, 128, 0.85)',
+                fontSize: '0.82rem',
+                fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+                fontWeight: 500,
+                width: 'fit-content',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!locating && !loading) e.currentTarget.style.color = '#4ade80';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = locating ? 'rgba(74, 222, 128, 0.5)' : 'rgba(74, 222, 128, 0.85)';
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+                <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" strokeOpacity="0"/>
+              </svg>
+              {locating ? 'Detecting location…' : 'Use my current location'}
+            </button>
 
             {error && (
               <p style={{ color: '#f87171', fontSize: '0.875rem', margin: 0 }}>

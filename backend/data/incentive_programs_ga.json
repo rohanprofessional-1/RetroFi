@@ -1,0 +1,59 @@
+[
+  {
+    "program_id": "ga-energy-efficient-home-improvement-credit",
+    "name": "Energy Efficient Home Improvement Credit",
+    "source_program_id": null,
+    "eligible_upgrades": [
+      "heat_pump",
+      "heat_pump_water_heater",
+      "attic_insulation",
+      "air_sealing",
+      "duct_sealing",
+      "electric_cooking",
+      "heat_pump_clothes_dryer",
+      "smart_thermostat",
+      "solar",
+      "battery_storage"
+    ],
+    "amount_rule": {
+      "amount_type": "tax_credit",
+      "amount_flat": null,
+      "amount_percent": 0.3,
+      "annual_cap": null,
+      "lifetime_cap": 3200.0,
+      "per_unit_rate": null,
+      "per_unit_basis": null,
+      "min_project_cost": null
+    },
+    "cap_category": null,
+    "resets_annually": false,
+    "available_from_year": null,
+    "expires_year": 2025,
+    "step_down_schedule": null,
+    "claim_timing": "tax_filing",
+    "income_tier": null,
+    "income_max_absolute": null,
+    "income_max_ami_percent": null,
+    "tax_liability_required": true,
+    "stackable": true,
+    "subsidy_basis_reduction": true,
+    "exclusive_with": [],
+    "ownership_required": true,
+    "primary_residence_required": true,
+    "home_type_eligible": [
+      "single_family"
+    ],
+    "equipment_certification": null,
+    "contractor_required": null,
+    "energy_audit_required": false,
+    "program_status": "active",
+    "availability_type": null,
+    "data_confidence": "medium",
+    "last_verified_date": null,
+    "geographic_scope": "state",
+    "state": "ga",
+    "utility_territory": null,
+    "source_url": null,
+    "citation_chunk_ids": []
+  }
+]
