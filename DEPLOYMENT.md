@@ -376,6 +376,8 @@ If trigger creation fails, connect GitHub first:
 gcloud builds submit --config=cloudbuild.yaml --region=us-east1 --project=retrofi-atl .
 ```
 
+> `$BUILD_ID` is used to tag images (works for manual submits and GitHub triggers). `$COMMIT_SHA` is only set for GitHub triggers and is empty on manual `gcloud builds submit`.
+
 ---
 
 ## 8. Local development (Docker Compose)

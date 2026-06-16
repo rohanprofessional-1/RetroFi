@@ -51,10 +51,12 @@ share/python-wheels/
 MANIFEST
 
 # Virtual Environment
-venv/
 .env
+!.env.production
+!.env.production.example
 .venv
 env/
+venv/
 venv.bak/
 
 # Database

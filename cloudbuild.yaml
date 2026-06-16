@@ -9,7 +9,7 @@ steps:
       - build
       - --platform=linux/amd64
       - -t
-      - us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:$COMMIT_SHA
+      - us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:$BUILD_ID
       - -t
       - us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:latest
       - -f
@@ -31,7 +31,7 @@ steps:
       - run
       - deploy
       - retrofi-backend
-      - --image=us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:$COMMIT_SHA
+      - --image=us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:$BUILD_ID
       - --region=us-east1
       - --platform=managed
       - --allow-unauthenticated
@@ -54,9 +54,9 @@ steps:
       - |
         set -euo pipefail
         cd frontend
-        if [ ! -f .env ]; then
-          echo "ERROR: frontend/.env is missing."
-          echo "Add VITE_API_BASE_URL (see .env.example)."
+        if [ ! -f .env.production ]; then
+          echo "ERROR: frontend/.env.production is missing."
+          echo "Add VITE_API_BASE_URL (see .env.production.example) and commit the file."
           exit 1
         fi
         npm ci
@@ -88,5 +88,5 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 images:
-  - us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:$COMMIT_SHA
+  - us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:$BUILD_ID
   - us-east1-docker.pkg.dev/$PROJECT_ID/retrofi-atl/backend:latest
