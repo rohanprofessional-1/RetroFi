@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -126,6 +127,10 @@ class RetrofitCalculationRequest(BaseModel):
     retcast: Optional[RetcastInput] = None
     upgrade_interests: List[str] = Field(default_factory=list)
     focus: Literal["cost", "carbon", "balanced"] = "balanced"
+    budget_per_year: Optional[float] = None       # per-year spend ceiling; triggers the timeline pass
+    planning_horizon_years: int = 5               # T in the math, default 5
+    discount_rate: float = 0.05                   # r for NPV, default 5%
+    current_year: int = Field(default_factory=lambda: datetime.now().year)
 
 
 class RetrofitOptionCalculation(BaseModel):
@@ -164,6 +169,38 @@ class LlmContext(BaseModel):
     citation_snippets: List[str]
 
 
+class TimelineYear(BaseModel):
+    year: int                                  # calendar year
+    upgrades: List[str]                        # upgrade_keys scheduled this year
+    outlay: float                              # cash out of pocket this year
+    incentives_captured: float                 # incentives received (with timing lag)
+    annual_savings_added: float                # new savings unlocked this year
+    cumulative_savings_pv: float               # PV of savings from this cohort through the horizon
+    cap_sharing_notes: List[str] = Field(default_factory=list)  # e.g. "HP+HPWH split $2000 25C cap"
+
+
+class TimelineUpgradeDetail(BaseModel):
+    upgrade_key: str
+    scheduled_year: Optional[int] = None       # calendar year, or None if skipped
+    skipped_reason: Optional[str] = None       # "over_budget", "dependency_unmet", "dominated"
+    incentive_value: float                     # total incentive captured in the scheduled year
+    incentive_confidence: float                # 0-1, drives UI caveat display
+    npv: float                                 # NPV over the horizon
+    carbon_value: float                        # cumulative carbon avoided (tons) over the horizon
+    score: float                               # focus-weighted normalized score
+    data_gaps: List[str] = Field(default_factory=list)  # fields that were None, for UI transparency
+
+
+class RetrofitTimeline(BaseModel):
+    years: List[TimelineYear]                  # indexed by calendar year
+    upgrade_details: List[TimelineUpgradeDetail]
+    total_npv: float
+    total_carbon_avoided_tons: float
+    focus: str                                 # "cost" / "carbon" / "balanced"
+    planning_horizon_years: int
+    key_insight: Optional[str] = None          # e.g. staggering captures extra federal credits
+
+
 class RetrofitCalculationResponse(BaseModel):
     address: str
     ranked_options: List[RetrofitOptionCalculation]
@@ -172,6 +209,7 @@ class RetrofitCalculationResponse(BaseModel):
     citations: List[SourceCitation]
     llm_context: LlmContext
     sequencing_focus: str = "balanced"
+    timeline: Optional[RetrofitTimeline] = None
 
 
 class RetrofitSummaryResponse(BaseModel):

@@ -48,6 +48,7 @@ def calculate_retrofit_options(
         )
         options.append(option)
 
+    solar_incentives: List[Dict] = []
     if request.solar and request.solar.solar_viable:
         solar_incentives = incentive_index.search_incentives(
             _to_incentive_request(request, upgrade_interests=["solar"]),
@@ -86,6 +87,17 @@ def calculate_retrofit_options(
     assumptions = _assumptions(request, missing_inputs)
     citations = list(citations_by_id.values())
 
+    timeline = None
+    if request.budget_per_year is not None:
+        from services.timeline_optimizer import build_timeline
+
+        all_incentive_docs = _dedup_docs(incentives + solar_incentives)
+        timeline = build_timeline(
+            request=request,
+            options=ranked_options,
+            incentive_docs=all_incentive_docs,
+        )
+
     return RetrofitCalculationResponse(
         address=request.property.address,
         ranked_options=ranked_options,
@@ -101,6 +113,7 @@ def calculate_retrofit_options(
             citations=citations,
         ),
         sequencing_focus=request.focus,
+        timeline=timeline,
     )
 
 
@@ -543,3 +556,15 @@ def _copy_model(model, update: Dict):
     if hasattr(model, "model_copy"):
         return model.model_copy(update=update)
     return model.copy(update=update)
+
+
+def _dedup_docs(docs: List[Dict]) -> List[Dict]:
+    """Return docs with duplicate IDs removed (first occurrence wins)."""
+    seen: Dict[str, bool] = {}
+    result: List[Dict] = []
+    for doc in docs:
+        doc_id = doc.get("id")
+        if doc_id not in seen:
+            seen[doc_id] = True
+            result.append(doc)
+    return result
