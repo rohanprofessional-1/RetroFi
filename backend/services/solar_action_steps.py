@@ -122,7 +122,7 @@ def _build_prompt(
 def _call_anthropic(prompt: str, api_key: str, model: str) -> list[dict]:
     body = {
         "model": model,
-        "max_tokens": 900,
+        "max_tokens": 1600,
         "temperature": 0.3,
         "messages": [{"role": "user", "content": prompt}],
     }
@@ -147,6 +147,13 @@ def _call_anthropic(prompt: str, api_key: str, model: str) -> list[dict]:
         for block in payload.get("content", [])
         if block.get("type") == "text"
     ).strip()
+    if text.startswith("```"):
+        text = text.lstrip("`")
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    if text.endswith("```"):
+        text = text[:-3].strip()
 
     try:
         steps = json.loads(text)
