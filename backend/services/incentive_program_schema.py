@@ -65,6 +65,13 @@ class AmountRule(BaseModel):
             amount = min(amount, self.lifetime_cap)
         if self.min_project_cost is not None and gross_cost < self.min_project_cost:
             return 0.0
+
+        # Rebates and grants cannot physically exceed what was spent on the project.
+        # Tax credits are not subject to this floor — they are calculated against tax
+        # liability, not project cost, so a credit can legally exceed project cost
+        # (e.g. carried forward). Only clamp cost-reimbursement types.
+        if self.amount_type in ("rebate", "grant"):
+            amount = min(amount, gross_cost)
         return round(amount, 2)
 
 

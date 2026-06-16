@@ -145,56 +145,6 @@
     "citation_chunk_ids": []
   },
   {
-    "program_id": "fl-hear-building-materials",
-    "name": "Building Materials Rebate",
-    "source_program_id": null,
-    "eligible_upgrades": [
-      "attic_insulation",
-      "air_sealing",
-      "duct_sealing"
-    ],
-    "amount_rule": {
-      "amount_type": "rebate",
-      "amount_flat": 1600.0,
-      "amount_percent": null,
-      "annual_cap": null,
-      "lifetime_cap": null,
-      "per_unit_rate": null,
-      "per_unit_basis": null,
-      "min_project_cost": null
-    },
-    "cap_category": null,
-    "resets_annually": false,
-    "available_from_year": null,
-    "expires_year": null,
-    "step_down_schedule": null,
-    "claim_timing": "point_of_sale",
-    "income_tier": "below_80_ami",
-    "income_max_absolute": null,
-    "income_max_ami_percent": null,
-    "tax_liability_required": false,
-    "stackable": true,
-    "subsidy_basis_reduction": true,
-    "exclusive_with": [],
-    "ownership_required": true,
-    "primary_residence_required": true,
-    "home_type_eligible": [
-      "single_family"
-    ],
-    "equipment_certification": null,
-    "contractor_required": true,
-    "energy_audit_required": false,
-    "program_status": "pending",
-    "availability_type": null,
-    "data_confidence": "medium",
-    "last_verified_date": null,
-    "geographic_scope": "state",
-    "state": "fl",
-    "utility_territory": null,
-    "source_url": null,
-    "citation_chunk_ids": []
-  },
-  {
     "program_id": "fl-hear-electric-wiring",
     "name": "Electric Wiring Rebate",
     "source_program_id": null,
@@ -253,7 +203,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 4000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -288,7 +238,8 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $4,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
   },
   {
     "program_id": "fl-homes-program-heat_pump_water_heater",
@@ -301,7 +252,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 4000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -336,7 +287,8 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $4,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
   },
   {
     "program_id": "fl-homes-program-insulation",
@@ -349,7 +301,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 4000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -384,7 +336,8 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $4,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
   },
   {
     "program_id": "fl-homes-program-air_sealing",
@@ -397,7 +350,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 4000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -432,7 +385,8 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $4,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
   },
   {
     "program_id": "fl-homes-program-duct_sealing",
@@ -445,7 +399,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 4000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -480,7 +434,8 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $4,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
   },
   {
     "program_id": "fl-homes-program-appliances",
@@ -493,7 +448,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 2000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -528,7 +483,8 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $2,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
   },
   {
     "program_id": "fl-homes-program-lighting",
@@ -541,7 +497,7 @@
       "amount_type": "rebate",
       "amount_flat": null,
       "amount_percent": 0.5,
-      "annual_cap": null,
+      "annual_cap": 2000,
       "lifetime_cap": null,
       "per_unit_rate": null,
       "per_unit_basis": null,
@@ -576,6 +532,105 @@
     "state": "fl",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "HOMES rebate is 50% of project cost, capped at $2,000. Standard-efficiency projects cap at $2,000; high-efficiency at $4,000."
+  },
+  {
+    "program_id": "fl-hear-attic-insulation",
+    "name": "Insulation Rebate (FL HEAR)",
+    "source_program_id": "fl-hear",
+    "cap_category": null,
+    "resets_annually": false,
+    "available_from_year": null,
+    "expires_year": null,
+    "step_down_schedule": null,
+    "claim_timing": "point_of_sale",
+    "income_tier": "below_80_ami",
+    "income_max_absolute": null,
+    "income_max_ami_percent": null,
+    "tax_liability_required": false,
+    "stackable": true,
+    "subsidy_basis_reduction": true,
+    "exclusive_with": [],
+    "ownership_required": true,
+    "primary_residence_required": true,
+    "home_type_eligible": [
+      "single_family"
+    ],
+    "equipment_certification": null,
+    "contractor_required": true,
+    "energy_audit_required": false,
+    "program_status": "pending",
+    "availability_type": null,
+    "data_confidence": "high",
+    "last_verified_date": null,
+    "geographic_scope": "state",
+    "state": "fl",
+    "utility_territory": null,
+    "source_url": null,
+    "citation_chunk_ids": [],
+    "eligible_upgrades": [
+      "attic_insulation"
+    ],
+    "amount_rule": {
+      "amount_type": "rebate",
+      "amount_flat": 1000.0,
+      "amount_percent": null,
+      "annual_cap": 1000,
+      "lifetime_cap": null,
+      "per_unit_rate": null,
+      "per_unit_basis": null,
+      "min_project_cost": null
+    },
+    "program_notes": "Part of the $1,600 FL HEAR weatherization combined cap covering insulation, air sealing, and duct sealing. Total across all weatherization measures is $1,600."
+  },
+  {
+    "program_id": "fl-hear-air-sealing",
+    "name": "Air Sealing Rebate (FL HEAR)",
+    "source_program_id": "fl-hear",
+    "cap_category": null,
+    "resets_annually": false,
+    "available_from_year": null,
+    "expires_year": null,
+    "step_down_schedule": null,
+    "claim_timing": "point_of_sale",
+    "income_tier": "below_80_ami",
+    "income_max_absolute": null,
+    "income_max_ami_percent": null,
+    "tax_liability_required": false,
+    "stackable": true,
+    "subsidy_basis_reduction": true,
+    "exclusive_with": [],
+    "ownership_required": true,
+    "primary_residence_required": true,
+    "home_type_eligible": [
+      "single_family"
+    ],
+    "equipment_certification": null,
+    "contractor_required": true,
+    "energy_audit_required": false,
+    "program_status": "pending",
+    "availability_type": null,
+    "data_confidence": "high",
+    "last_verified_date": null,
+    "geographic_scope": "state",
+    "state": "fl",
+    "utility_territory": null,
+    "source_url": null,
+    "citation_chunk_ids": [],
+    "eligible_upgrades": [
+      "air_sealing"
+    ],
+    "amount_rule": {
+      "amount_type": "rebate",
+      "amount_flat": 600.0,
+      "amount_percent": null,
+      "annual_cap": 600,
+      "lifetime_cap": null,
+      "per_unit_rate": null,
+      "per_unit_basis": null,
+      "min_project_cost": null
+    },
+    "program_notes": "Part of the $1,600 FL HEAR weatherization combined cap covering insulation, air sealing, and duct sealing. Total across all weatherization measures is $1,600."
   }
 ]

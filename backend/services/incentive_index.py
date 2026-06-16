@@ -255,6 +255,9 @@ class IncentiveIndex:
         household_income = _get_value(query, "household_income")
         tax_liability = _get_value(query, "tax_liability_estimate")
 
+        import datetime as _dt
+        current_year = _get_value(query, "current_year", None) or _dt.datetime.now().year
+
         results: List[Dict[str, Any]] = []
         for program in all_programs:
             upgrade_matches = set(program.eligible_upgrades).intersection(categories)
@@ -262,6 +265,19 @@ class IncentiveIndex:
                 continue
 
             if program.program_status not in ("active", "pending"):
+                continue
+
+            # Hard expiration filter — never surface expired programs.
+            if program.expires_year is not None and current_year > program.expires_year:
+                continue
+
+            # Hard availability filter — skip if not yet available.
+            if program.available_from_year is not None and current_year < program.available_from_year:
+                continue
+
+            # Drop programs with no computable amount — they'd show as $0 and mislead.
+            ar = program.amount_rule
+            if ar.amount_flat is None and ar.amount_percent is None and ar.per_unit_rate is None:
                 continue
 
             # Utility territory filter
@@ -277,10 +293,23 @@ class IncentiveIndex:
                 if household_income is None:
                     eligibility_status = "needs_income_verification"
                 elif household_income > program.income_max_absolute:
-                    continue  # Skip entirely
-            elif program.income_tier and program.income_tier != "any":
-                if household_income is None:
+                    continue  # Definitively ineligible on the flat threshold
+                # If income passes the flat threshold but an AMI tier is also set,
+                # we still can't confirm eligibility without location-specific AMI
+                # data — surface a verification note so users don't assume they qualify.
+                if program.income_tier and program.income_tier != "any":
                     eligibility_status = "needs_income_verification"
+            elif program.income_tier and program.income_tier != "any":
+                # No flat cap at all — can't verify without location-specific AMI.
+                eligibility_status = "needs_income_verification"
+
+            # Pending programs exist in the data but aren't claimable today.
+            if program.program_status == "pending":
+                eligibility_status = "program_pending"
+
+            # Equipment certification caveat — we can't verify at quote time.
+            elif program.equipment_certification:
+                eligibility_status = "needs_equipment_verification"
 
             # Tax liability warning
             tax_liability_note = None
@@ -674,20 +703,24 @@ def _program_geographic_scope(program: IncentiveProgram) -> List[str]:
 def _program_eligibility_text(program: IncentiveProgram) -> str:
     """Generate eligibility text from structured program fields."""
     parts = []
-    if program.income_tier and program.income_tier != "any":
-        parts.append(f"Income: {program.income_tier.replace('_', ' ')}")
-    if program.income_max_absolute:
-        parts.append(f"Max income: ${program.income_max_absolute:,.0f}")
-    if program.tax_liability_required:
-        parts.append("Requires tax liability")
     if program.ownership_required:
-        parts.append("Owner-occupied")
-    if program.contractor_required is True:
-        parts.append("Licensed contractor required")
-    elif program.contractor_required is False:
-        parts.append("DIY eligible")
-    if program.energy_audit_required:
-        parts.append("Energy audit required")
+        parts.append("Owner-occupied homes only")
+    if program.primary_residence_required:
+        parts.append("Primary residence required")
+    if program.income_tier and program.income_tier != "any":
+        tier_label = program.income_tier.replace("_", " ")
+        if program.income_max_absolute:
+            parts.append(f"Income-qualified ({tier_label}, up to ${program.income_max_absolute:,.0f} — exact limit depends on location and household size)")
+        else:
+            parts.append(f"Income-qualified ({tier_label} — exact threshold depends on location and household size, verification required)")
+    if program.tax_liability_required:
+        parts.append("Requires sufficient federal tax liability to claim")
     if program.equipment_certification:
-        parts.append(program.equipment_certification)
-    return ". ".join(parts) + "." if parts else "See program guidelines for eligibility details."
+        parts.append(f"Equipment must meet certification requirements: {program.equipment_certification}")
+    if program.contractor_required is True:
+        parts.append("Must use a program-approved or licensed contractor")
+    elif program.contractor_required is False:
+        parts.append("DIY-eligible")
+    if program.energy_audit_required:
+        parts.append("Energy audit required before work begins")
+    return " ".join(parts + []) if not parts else ". ".join(parts) + "."

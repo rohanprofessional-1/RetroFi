@@ -164,10 +164,12 @@ def _hydrate_doc(doc: Dict) -> Dict:
 # Cost and incentive math (per-program, None-robust)
 # --------------------------------------------------------------------------- #
 def compute_adjusted_cost(option: RetrofitOptionCalculation, incentive_docs: List[Dict]) -> float:
-    """Net cost of the option plus any compliance add-ons implied by the programs.
+    """Full project cost: gross cost plus any compliance add-ons implied by the programs.
 
-    Some programs require an energy audit or a permit to claim; those carry real,
-    out-of-pocket costs that the headline ``net_cost`` does not include.
+    This is the PV-of-cost term in the NPV. Incentives are added back separately as a
+    positive PV term, so this must be the *gross* cost — using ``net_cost`` here (which
+    already nets out incentives) would double-count them. Some programs require an
+    energy audit or a permit, which add real out-of-pocket cost.
     """
     eligible = [d for d in incentive_docs if option.upgrade_key in d.get("eligible_upgrades", [])]
     addon = 0.0
@@ -175,7 +177,29 @@ def compute_adjusted_cost(option: RetrofitOptionCalculation, incentive_docs: Lis
         addon += ENERGY_AUDIT_ADDON_COST
     if any(coalesce(d.get("permit_required"), False) for d in eligible):
         addon += PERMIT_ADDON_COST
-    return option.net_cost + addon
+    return option.gross_cost + addon
+
+
+def _upfront_outlay(
+    option: RetrofitOptionCalculation,
+    incentive_docs: List[Dict],
+    calendar_year: int,
+    current_year: int,
+    tax_liability,
+    request: Optional[RetrofitCalculationRequest],
+) -> float:
+    """Cash the homeowner needs *at install* — full cost minus point-of-sale rebates only.
+
+    Tax credits and tax-filing rebates arrive months later (next April), so they do NOT
+    reduce the upfront budget requirement. This is what the per-year budget constraint
+    must see, not ``net_cost`` (which optimistically subtracts those deferred incentives).
+    """
+    entries, _, _ = _program_incentives(
+        option.upgrade_key, option.gross_cost, incentive_docs,
+        calendar_year, current_year, tax_liability, request,
+    )
+    pos = sum(e["raw"] for e in entries if e["doc"].get("claim_timing") == "point_of_sale")
+    return max(compute_adjusted_cost(option, incentive_docs) - pos, 0.0)
 
 
 def _gross_raw(doc: Dict, gross_cost: float, calendar_year: int) -> float:
@@ -533,9 +557,30 @@ def _evaluate_assignment(
     cohort_notes: Dict[int, List[str]] = defaultdict(list)
     total_score = 0.0
 
-    for t, year_entries in cohorts.items():
+    # Cross-year lifetime-cap ledger: a non-resetting lifetime cap (e.g. WAP's $8,009)
+    # must deplete across the whole plan, not reset each year. Process years in order
+    # so earlier claims consume the budget before later ones see it.
+    lifetime_consumed: Dict[str, float] = defaultdict(float)
+
+    for t in sorted(cohorts):
+        year_entries = cohorts[t]
         adjusted, notes = apply_cap_sharing(year_entries)
         cohort_notes[t].extend(notes)
+
+        for upgrade_key in sorted(adjusted):
+            ledgered: List[Dict] = []
+            for p in adjusted[upgrade_key]:
+                doc = p["doc"]
+                amount = p["amount"]
+                if not coalesce(doc.get("resets_annually"), True):
+                    lifetime_cap = coalesce(doc.get("lifetime_cap"), math.inf)
+                    if lifetime_cap < math.inf:
+                        remaining = max(lifetime_cap - lifetime_consumed[p["prog_id"]], 0.0)
+                        amount = min(amount, remaining)
+                        lifetime_consumed[p["prog_id"]] += amount
+                ledgered.append({**p, "amount": amount})
+            adjusted[upgrade_key] = ledgered
+
         disc_t = _discount(r, t - 1)
         for upgrade_key, progs in adjusted.items():
             option = options_by_key[upgrade_key]
@@ -621,14 +666,15 @@ def feasible_assignments(
     dependency_map: Dict[str, Dict],
     budget_per_year: float,
     options_by_key: Dict[str, RetrofitOptionCalculation],
+    upfront_by_key: Dict[str, float],
 ):
     """Yield only assignments respecting the DAG and per-year budget.
 
     ``upgrade_keys`` must be in topological order (dependencies first). An upgrade
     may be scheduled no earlier than the latest year of its (in-scope) dependencies,
-    and never in the same year if that would push the year's cohort cost over budget.
-    A dependency that is itself skipped makes the dependent unschedulable. Every
-    upgrade may also be skipped (``None``).
+    and never in the same year if that would push the year's cohort *upfront* cost
+    (gross minus point-of-sale rebates) over budget. A dependency that is itself
+    skipped makes the dependent unschedulable. Every upgrade may also be skipped.
     """
     def deps_of(upgrade: str) -> List[str]:
         return [d for d in dependency_map.get(upgrade, {}).get("depends_on", []) if d in options_by_key]
@@ -651,9 +697,9 @@ def feasible_assignments(
 
         for t in schedulable_years:
             cohort_cost = sum(
-                options_by_key[uk].net_cost for uk, yr in current.items() if yr == t
+                upfront_by_key[uk] for uk, yr in current.items() if yr == t
             )
-            if cohort_cost + options_by_key[upgrade].net_cost <= budget_per_year:
+            if cohort_cost + upfront_by_key[upgrade] <= budget_per_year:
                 current[upgrade] = t
                 yield from generate(rest, current)
                 del current[upgrade]
@@ -681,6 +727,13 @@ def build_timeline(
     upgrade_keys = _topo_order(options_by_key.keys(), dependency_map)
     tax_liability = getattr(getattr(request, "household", None), "tax_liability_estimate", None)
 
+    # Upfront cash needed per upgrade = gross − point-of-sale rebates (tax credits land
+    # later, so they don't relax the budget). This is what the budget constraint sees.
+    upfront_by_key = {
+        uk: _upfront_outlay(options_by_key[uk], incentive_docs, Y0, Y0, tax_liability, request)
+        for uk in upgrade_keys
+    }
+
     # Precompute min-max normalization bounds across the entire candidate space.
     all_npvs: List[float] = []
     all_carbons: List[float] = []
@@ -697,7 +750,7 @@ def build_timeline(
     # Brute-force search over the feasible (DAG- and budget-constrained) space.
     best_score = -math.inf
     best_assignment: Dict[str, Optional[int]] = {uk: None for uk in upgrade_keys}
-    for assignment in feasible_assignments(upgrade_keys, T, dependency_map, budget, options_by_key):
+    for assignment in feasible_assignments(upgrade_keys, T, dependency_map, budget, options_by_key, upfront_by_key):
         total = score_assignment(assignment, options_by_key, incentive_docs, request, norm_npv, norm_carbon)
         if total > best_score:
             best_score = total
@@ -716,7 +769,7 @@ def build_timeline(
 
     years = _build_years(best_assignment, results, cohort_notes, options_by_key, selected, Y0, T)
     upgrade_details = _build_details(
-        best_assignment, results, options_by_key, incentive_docs, dependency_map, request, budget, Y0, tax_liability
+        best_assignment, results, options_by_key, incentive_docs, dependency_map, request, budget, Y0, tax_liability, upfront_by_key
     )
 
     total_npv = round(sum(results[uk]["npv"] for uk in selected), 2)
@@ -729,6 +782,7 @@ def build_timeline(
         total_carbon_avoided_tons=total_carbon,
         focus=request.focus,
         planning_horizon_years=T,
+        budget_per_year=request.budget_per_year,
         key_insight=key_insight,
     )
 
@@ -795,13 +849,14 @@ def _build_years(best_assignment, results, cohort_notes, options_by_key, selecte
 
 
 def _build_details(
-    best_assignment, results, options_by_key, incentive_docs, dependency_map, request, budget, Y0, tax_liability
+    best_assignment, results, options_by_key, incentive_docs, dependency_map, request, budget, Y0, tax_liability, upfront_by_key
 ) -> List[TimelineUpgradeDetail]:
     details: List[TimelineUpgradeDetail] = []
     for uk, option in options_by_key.items():
         t = best_assignment.get(uk)
         if t is not None:
             res = results[uk]
+            pos = sum(p["amount"] for p in res["progs"] if p["doc"].get("claim_timing") == "point_of_sale")
             details.append(
                 TimelineUpgradeDetail(
                     upgrade_key=uk,
@@ -809,6 +864,7 @@ def _build_details(
                     skipped_reason=None,
                     incentive_value=round(res["incentive_total"], 2),
                     incentive_confidence=round(res["confidence"], 3),
+                    upfront_outlay=round(max(option.gross_cost - pos, 0.0), 2),
                     npv=round(res["npv"], 2),
                     carbon_value=round(res["carbon_value"], 3),
                     score=round(res["score"], 4),
@@ -824,9 +880,10 @@ def _build_details(
                 TimelineUpgradeDetail(
                     upgrade_key=uk,
                     scheduled_year=None,
-                    skipped_reason=_skip_reason(uk, best_assignment, options_by_key, dependency_map, budget),
+                    skipped_reason=_skip_reason(uk, best_assignment, options_by_key, dependency_map, budget, upfront_by_key),
                     incentive_value=0.0,
                     incentive_confidence=round(confidence, 3),
+                    upfront_outlay=round(upfront_by_key.get(uk, option.gross_cost), 2),
                     npv=0.0,
                     carbon_value=0.0,
                     score=0.0,
@@ -836,10 +893,10 @@ def _build_details(
     return details
 
 
-def _skip_reason(uk, best_assignment, options_by_key, dependency_map, budget) -> str:
+def _skip_reason(uk, best_assignment, options_by_key, dependency_map, budget, upfront_by_key) -> str:
     deps = [d for d in dependency_map.get(uk, {}).get("depends_on", []) if d in options_by_key]
     if any(best_assignment.get(dep) is None for dep in deps):
         return "dependency_unmet"
-    if options_by_key[uk].net_cost > budget:
+    if upfront_by_key.get(uk, options_by_key[uk].gross_cost) > budget:
         return "over_budget"
     return "dominated"

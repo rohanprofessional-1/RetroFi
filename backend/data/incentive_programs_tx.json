@@ -37,7 +37,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -45,7 +45,8 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   },
   {
     "program_id": "tx-homes-heat_pump_water_heater",
@@ -85,7 +86,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -93,7 +94,8 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   },
   {
     "program_id": "tx-homes-attic_insulation",
@@ -133,7 +135,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -141,7 +143,8 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   },
   {
     "program_id": "tx-homes-air_sealing",
@@ -181,7 +184,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -189,7 +192,8 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   },
   {
     "program_id": "tx-homes-duct_sealing",
@@ -229,7 +233,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -237,7 +241,8 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   },
   {
     "program_id": "tx-homes-electric_cooking",
@@ -277,7 +282,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -285,7 +290,8 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   },
   {
     "program_id": "tx-homes-smart_thermostat",
@@ -325,7 +331,7 @@
     "equipment_certification": null,
     "contractor_required": null,
     "energy_audit_required": false,
-    "program_status": "active",
+    "program_status": "not_available",
     "availability_type": null,
     "data_confidence": "medium",
     "last_verified_date": null,
@@ -333,6 +339,7 @@
     "state": "tx",
     "utility_territory": null,
     "source_url": null,
-    "citation_chunk_ids": []
+    "citation_chunk_ids": [],
+    "program_notes": "Texas has not implemented IRA HOMES or HEAR rebate programs as of 2026."
   }
 ]

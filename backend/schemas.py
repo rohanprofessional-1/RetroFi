@@ -185,6 +185,7 @@ class TimelineUpgradeDetail(BaseModel):
     skipped_reason: Optional[str] = None       # "over_budget", "dependency_unmet", "dominated"
     incentive_value: float                     # total incentive captured in the scheduled year
     incentive_confidence: float                # 0-1, drives UI caveat display
+    upfront_outlay: float = 0.0                # cash needed at install (gross − point-of-sale rebates)
     npv: float                                 # NPV over the horizon
     carbon_value: float                        # cumulative carbon avoided (tons) over the horizon
     score: float                               # focus-weighted normalized score
@@ -198,6 +199,7 @@ class RetrofitTimeline(BaseModel):
     total_carbon_avoided_tons: float
     focus: str                                 # "cost" / "carbon" / "balanced"
     planning_horizon_years: int
+    budget_per_year: Optional[float] = None    # the annual spend ceiling used (drives UI scaling)
     key_insight: Optional[str] = None          # e.g. staggering captures extra federal credits
 
 
@@ -219,6 +221,7 @@ class RetrofitSummaryResponse(BaseModel):
     model: Optional[str] = None
     solar_data: Optional[dict] = None
     property_profile: Optional[dict] = None
+    calculation_request: Optional[dict] = None  # original DTO, so the client can replay with a budget
 
 
 class SequenceRetrofitRequest(BaseModel):
