@@ -21,6 +21,10 @@ from schemas import (
     SolarStep,
 )
 from services.air_sealing_steps import generate_air_sealing_steps
+from services.attic_insulation_steps import generate_attic_insulation_steps
+from services.heat_pump_steps import generate_heat_pump_steps
+from services.heat_pump_water_heater_steps import generate_heat_pump_water_heater_steps
+from services.utility_rates import get_utility_rates
 from services.llm_summary import summarize_retrofit_calculation
 from services.nearby_contractors import find_nearby_contractors, find_solar_installers
 from services.property_data import get_property_and_solar_data
@@ -195,6 +199,26 @@ async def action_steps(request: ActionStepsRequest):
     lng = coords.get("lng")
     profile = request.property_profile or {}
 
+    if request.upgrade_key == "attic_insulation":
+        contractors = []
+        if lat is not None and lng is not None:
+            contractors = await find_nearby_contractors(lat, lng, "attic insulation contractor")
+        steps = generate_attic_insulation_steps(
+            address=request.address,
+            gross_cost=request.gross_cost,
+            net_cost=request.net_cost,
+            annual_savings=request.annual_savings,
+            payback_years=request.payback_years,
+            matched_incentives=request.matched_incentives,
+            property_profile=profile,
+            contractors=contractors,
+        )
+        return ActionStepsResponse(
+            steps=[SolarStep(**s) for s in steps],
+            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
+            source="ai" if steps else "fallback",
+        )
+
     if request.upgrade_key == "air_sealing":
         contractors = []
         if lat is not None and lng is not None:
@@ -207,6 +231,50 @@ async def action_steps(request: ActionStepsRequest):
             payback_years=request.payback_years,
             matched_incentives=request.matched_incentives,
             property_profile=profile,
+            contractors=contractors,
+        )
+        return ActionStepsResponse(
+            steps=[SolarStep(**s) for s in steps],
+            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
+            source="ai" if steps else "fallback",
+        )
+
+    if request.upgrade_key == "heat_pump":
+        contractors = []
+        if lat is not None and lng is not None:
+            contractors = await find_nearby_contractors(lat, lng, "heat pump HVAC installation contractor")
+        rates = await get_utility_rates(request.address)
+        steps = generate_heat_pump_steps(
+            address=request.address,
+            gross_cost=request.gross_cost,
+            net_cost=request.net_cost,
+            annual_savings=request.annual_savings,
+            payback_years=request.payback_years,
+            matched_incentives=request.matched_incentives,
+            property_profile=profile,
+            rates=rates,
+            contractors=contractors,
+        )
+        return ActionStepsResponse(
+            steps=[SolarStep(**s) for s in steps],
+            nearby_contractors=[NearbyInstaller(**c) for c in contractors],
+            source="ai" if steps else "fallback",
+        )
+
+    if request.upgrade_key == "heat_pump_water_heater":
+        contractors = []
+        if lat is not None and lng is not None:
+            contractors = await find_nearby_contractors(lat, lng, "heat pump water heater plumber installation")
+        rates = await get_utility_rates(request.address)
+        steps = generate_heat_pump_water_heater_steps(
+            address=request.address,
+            gross_cost=request.gross_cost,
+            net_cost=request.net_cost,
+            annual_savings=request.annual_savings,
+            payback_years=request.payback_years,
+            matched_incentives=request.matched_incentives,
+            property_profile=profile,
+            rates=rates,
             contractors=contractors,
         )
         return ActionStepsResponse(
