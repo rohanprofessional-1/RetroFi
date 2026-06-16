@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { fetchSolarActionSteps, fetchActionSteps, getGoogleMapsConfig, calculateRetrofit } from './api';
 import TimelinePlan from './TimelinePlan';
@@ -21,9 +21,48 @@ function Dashboard() {
   const [focus, setFocus] = useState(result?.calculation?.sequencing_focus || 'balanced');
 
   // Budget planner: the slider drives a live re-computation of the multi-year timeline.
-  const [budget, setBudget] = useState(0);
-  const [timeline, setTimeline] = useState(result?.calculation?.timeline || null);
+  // Persist the last-used budget so navigating to an upgrade and back doesn't reset it.
+  const budgetStorageKey = result?.calculation?.address
+    ? `retrofi_budget__${result.calculation.address}`
+    : 'retrofi_budget';
+  const [budget, setBudget] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(budgetStorageKey);
+      return saved !== null ? Number(saved) : 0;
+    } catch { return 0; }
+  });
+  const timelineStorageKey = result?.calculation?.address
+    ? `retrofi_timeline__${result.calculation.address}`
+    : 'retrofi_timeline';
+
+  const [timeline, setTimeline] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(timelineStorageKey);
+      if (!saved) return result?.calculation?.timeline || null;
+      const { timeline: t } = JSON.parse(saved);
+      return t || result?.calculation?.timeline || null;
+    } catch { return result?.calculation?.timeline || null; }
+  });
   const [timelineLoading, setTimelineLoading] = useState(false);
+
+  // Track which budget+focus combo the current timeline was computed for so we can
+  // skip a redundant API call on remount when the values are restored from sessionStorage.
+  const lastComputedRef = useRef(() => {
+    try {
+      const saved = sessionStorage.getItem(timelineStorageKey);
+      if (!saved) return { budget: null, focus: null };
+      const { budget: b, focus: f } = JSON.parse(saved);
+      return { budget: b ?? null, focus: f ?? null };
+    } catch { return { budget: null, focus: null }; }
+  });
+  // Unwrap the initializer — useRef doesn't call functions like useState does.
+  if (typeof lastComputedRef.current === 'function') {
+    lastComputedRef.current = lastComputedRef.current();
+  }
+
+  useEffect(() => {
+    try { sessionStorage.setItem(budgetStorageKey, String(budget)); } catch {}
+  }, [budget, budgetStorageKey]);
 
   useEffect(() => {
     if (!result) navigate('/');
@@ -110,17 +149,26 @@ function Dashboard() {
   }, []);
 
   // Live-recompute the timeline whenever the budget slider changes (debounced).
-  // At budget 0 we simply render the ranked cards instead, so no state reset is needed
-  // here — any stale timeline stays in state but is not shown.
+  // Skip the fetch when the current budget+focus already matches what's cached (e.g. after
+  // navigating back from an upgrade page — we don't want to show the loading spinner again).
   useEffect(() => {
     const calcRequest = result?.calculation_request;
     if (!calcRequest || budget <= 0) return;
+    const lc = lastComputedRef.current;
+    if (lc.budget === budget && lc.focus === focus) return;
     let cancelled = false;
     const handle = setTimeout(async () => {
       setTimelineLoading(true);
       try {
         const resp = await calculateRetrofit({ ...calcRequest, budget_per_year: budget, focus });
-        if (!cancelled) setTimeline(resp.timeline || null);
+        if (!cancelled) {
+          const newTimeline = resp.timeline || null;
+          setTimeline(newTimeline);
+          lastComputedRef.current = { budget, focus };
+          try {
+            sessionStorage.setItem(timelineStorageKey, JSON.stringify({ budget, focus, timeline: newTimeline }));
+          } catch {}
+        }
       } catch (err) {
         if (!cancelled) console.error('Failed to compute timeline', err);
       } finally {
