@@ -11,14 +11,22 @@ from schemas import (
     RetrofitCalculationRequest,
     RetrofitCalculationResponse,
     RetrofitSummaryResponse,
+    SequenceRetrofitRequest,
+    SequenceRetrofitResponse,
+    SolarActionStepsRequest,
+    SolarActionStepsResponse,
+    SolarStep,
 )
 from services.llm_summary import summarize_retrofit_calculation
+from services.nearby_contractors import find_solar_installers
 from services.property_data import get_property_and_solar_data
 from services.questionnaire import get_next_question
 from services.rentcast_api import get_pre_filled_answers
 from services.retrofit_analyzer import analyze_retrofit_incentives
-from services.retrofit_calculator import calculate_retrofit_options
+from services.retrofit_calculator import calculate_retrofit_options, compute_efficiency_lookup
 from services.retrofit_request_builder import build_retrofit_calculation_request
+from services.sequencing import sequence_options
+from services.solar_action_steps import generate_solar_steps
 
 
 BACKEND_ROOT = Path(__file__).resolve().parent
@@ -93,6 +101,15 @@ def summarize_retrofit(request: RetrofitCalculationRequest):
     return summarize_retrofit_calculation(calculation)
 
 
+@app.post("/sequence-retrofit/", response_model=SequenceRetrofitResponse)
+def sequence_retrofit(request: SequenceRetrofitRequest):
+    efficiency_lookup = compute_efficiency_lookup(request.ranked_options)
+    sequenced = sequence_options(
+        request.ranked_options, focus=request.focus, efficiency_lookup=efficiency_lookup
+    )
+    return SequenceRetrofitResponse(ranked_options=sequenced, sequencing_focus=request.focus)
+
+
 @app.post("/property-lookup")
 def property_lookup(request: PropertyLookupRequest):
     try:
@@ -132,12 +149,36 @@ async def generate_plan(request: GeneratePlanRequest):
         solar_data=solar_data,
     )
     calculation = calculate_retrofit_options(calculation_request)
-    return summarize_retrofit_calculation(calculation)
+    summary = summarize_retrofit_calculation(calculation)
+    return summary.model_copy(update={"solar_data": solar_data})
 
 
 @app.post("/generate-plan/", response_model=RetrofitSummaryResponse)
 async def generate_plan_slash(request: GeneratePlanRequest):
     return await generate_plan(request)
+
+
+@app.post("/solar-action-steps", response_model=SolarActionStepsResponse)
+async def solar_action_steps(request: SolarActionStepsRequest):
+    coords = request.solar_data.get("coordinates") or {}
+    lat = coords.get("lat")
+    lng = coords.get("lng")
+
+    installers = []
+    if lat is not None and lng is not None:
+        installers = await find_solar_installers(lat, lng)
+
+    steps = generate_solar_steps(
+        solar_data=request.solar_data,
+        matched_incentives=request.matched_incentives,
+        address=request.address,
+        installers=installers,
+    )
+    return SolarActionStepsResponse(
+        steps=[SolarStep(**s) for s in steps],
+        nearby_installers=installers,
+        source="ai" if steps else "fallback",
+    )
 
 
 def _money_to_float(value) -> float:

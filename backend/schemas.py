@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -116,6 +116,7 @@ class RetrofitCalculationRequest(BaseModel):
     solar: Optional[SolarPotentialInput] = None
     retcast: Optional[RetcastInput] = None
     upgrade_interests: List[str] = Field(default_factory=list)
+    focus: Literal["cost", "carbon", "balanced"] = "balanced"
 
 
 class RetrofitOptionCalculation(BaseModel):
@@ -134,6 +135,8 @@ class RetrofitOptionCalculation(BaseModel):
     matched_incentives: List[IncentiveMatch]
     citations: List[str]
     calculation_notes: List[str]
+    recommended_sequence: int = 0
+    sequence_notes: List[str] = Field(default_factory=list)
 
 
 class RetrofitCalculationTotals(BaseModel):
@@ -159,6 +162,7 @@ class RetrofitCalculationResponse(BaseModel):
     assumptions: AnalysisAssumptions
     citations: List[SourceCitation]
     llm_context: LlmContext
+    sequencing_focus: str = "balanced"
 
 
 class RetrofitSummaryResponse(BaseModel):
@@ -166,3 +170,42 @@ class RetrofitSummaryResponse(BaseModel):
     llm_summary: str
     summary_source: str
     model: Optional[str] = None
+    solar_data: Optional[dict] = None
+
+
+class SequenceRetrofitRequest(BaseModel):
+    ranked_options: List[RetrofitOptionCalculation]
+    focus: Literal["cost", "carbon", "balanced"] = "balanced"
+
+
+class SequenceRetrofitResponse(BaseModel):
+    ranked_options: List[RetrofitOptionCalculation]
+    sequencing_focus: str
+
+
+class SolarActionStepsRequest(BaseModel):
+    address: str
+    solar_data: dict
+    matched_incentives: List[dict] = Field(default_factory=list)
+
+
+class NearbyInstaller(BaseModel):
+    name: str
+    rating: float
+    ratings_count: int
+    vicinity: str
+    place_id: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class SolarStep(BaseModel):
+    title: str
+    summary: str
+    bullets: List[str]
+
+
+class SolarActionStepsResponse(BaseModel):
+    steps: List[SolarStep]
+    nearby_installers: List[NearbyInstaller]
+    source: str

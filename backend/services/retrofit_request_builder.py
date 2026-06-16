@@ -48,7 +48,6 @@ def build_retrofit_calculation_request(
         ),
         solar=_solar_input(solar_data),
         retcast=_retcast_input(monthly_electric_bill, monthly_gas_bill),
-        upgrade_interests=_upgrade_interests(answers),
     )
 
 
@@ -93,18 +92,6 @@ def _retcast_input(monthly_electric_bill: float, monthly_gas_bill: float) -> Ret
         gas_carbon_kg_per_therm=DEFAULT_GAS_CARBON_KG_PER_THERM,
         confidence="low",
     )
-
-
-def _upgrade_interests(answers: dict) -> list[str]:
-    interests = []
-    primary_goal = str(answers.get("primary_goal") or "").lower()
-    if "backup" in primary_goal:
-        interests.extend(["solar", "battery storage"])
-    if "carbon" in primary_goal or "bill" in primary_goal or "value" in primary_goal:
-        interests.extend(["solar", "heat pump", "insulation", "air sealing"])
-    if answers.get("planning_roof_replacement") == "Yes":
-        interests.append("solar")
-    return list(dict.fromkeys(interests))
 
 
 def _home_type(value) -> Optional[str]:

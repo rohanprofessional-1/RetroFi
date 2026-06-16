@@ -12,6 +12,7 @@ from schemas import (
     SourceCitation,
 )
 from services.incentive_index import IncentiveIndex, get_default_index
+from services.sequencing import sequence_options
 
 
 DEFAULT_SQUARE_FOOTAGE = 1800
@@ -35,7 +36,7 @@ def calculate_retrofit_options(
     incentives = incentive_index.search_incentives(analysis_request)
 
     citations_by_id: Dict[str, SourceCitation] = {}
-    rows: List[Tuple[float, RetrofitOptionCalculation]] = []
+    options: List[RetrofitOptionCalculation] = []
     missing_inputs = _missing_inputs(request)
 
     for cost_document in costs:
@@ -45,7 +46,7 @@ def calculate_retrofit_options(
             incentive_documents=incentives,
             citations_by_id=citations_by_id,
         )
-        rows.append((option.score, option))
+        options.append(option)
 
     if request.solar and request.solar.solar_viable:
         solar_incentives = incentive_index.search_incentives(
@@ -57,15 +58,23 @@ def calculate_retrofit_options(
             incentive_documents=solar_incentives,
             citations_by_id=citations_by_id,
         )
-        rows.append((option.score, option))
+        options.append(option)
+
+    scored_options, efficiency_lookup = _apply_balanced_scores(options)
 
     ranked_options = [
         _copy_model(option, {"rank": rank})
-        for rank, (_, option) in enumerate(
-            sorted(rows, key=lambda row: row[0], reverse=True),
+        for rank, option in enumerate(
+            sorted(scored_options, key=lambda option: option.score, reverse=True),
             start=1,
         )
     ]
+
+    ranked_options = sequence_options(
+        ranked_options,
+        focus=request.focus,
+        efficiency_lookup=efficiency_lookup,
+    )
 
     totals = RetrofitCalculationTotals(
         gross_cost=round(sum(option.gross_cost for option in ranked_options), 2),
@@ -91,6 +100,7 @@ def calculate_retrofit_options(
             missing_inputs=missing_inputs,
             citations=citations,
         ),
+        sequencing_focus=request.focus,
     )
 
 
@@ -125,13 +135,6 @@ def _calculate_efficiency_option(
         source_url=cost_document.get("source_url"),
         snippet=cost_document["citation_snippet"],
     )
-    score = _rank_score(
-        net_cost=net_cost,
-        annual_savings=annual_savings,
-        carbon_avoided=carbon_avoided,
-        confidence=cost_document["confidence"],
-    )
-
     return RetrofitOptionCalculation(
         upgrade_key=upgrade_key,
         name=cost_document["name"],
@@ -143,7 +146,7 @@ def _calculate_efficiency_option(
         annual_savings=round(annual_savings, 2),
         carbon_avoided_tons=round(carbon_avoided, 2),
         payback_years=payback_years,
-        score=round(score, 4),
+        score=0,
         confidence=cost_document["confidence"],
         matched_incentives=selected_incentives,
         citations=[cost_citation_id] + [incentive.citation_id for incentive in selected_incentives],
@@ -178,12 +181,6 @@ def _calculate_solar_option(
     incentive_total = sum(incentive.amount for incentive in selected_incentives)
     net_cost = max(gross_cost - incentive_total, 0)
     payback_years = round(net_cost / annual_savings, 1) if annual_savings > 0 else None
-    score = _rank_score(
-        net_cost=net_cost,
-        annual_savings=annual_savings,
-        carbon_avoided=carbon_avoided,
-        confidence="medium",
-    ) + 2
 
     solar_citation_id = "citation-google-solar-input"
     citations_by_id[solar_citation_id] = SourceCitation(
@@ -205,7 +202,7 @@ def _calculate_solar_option(
         annual_savings=round(annual_savings, 2),
         carbon_avoided_tons=round(carbon_avoided, 2),
         payback_years=payback_years,
-        score=round(score, 4),
+        score=0,
         confidence="medium",
         matched_incentives=selected_incentives,
         citations=[solar_citation_id] + [incentive.citation_id for incentive in selected_incentives],
@@ -374,10 +371,51 @@ def _eligibility_notes(document: Dict) -> str:
     return document["eligibility"]
 
 
-def _rank_score(net_cost: float, annual_savings: float, carbon_avoided: float, confidence: str) -> float:
-    payback_component = annual_savings / max(net_cost, 1)
-    confidence_weight = {"high": 1.2, "medium": 1.0, "low": 0.8}.get(confidence, 1.0)
-    return (payback_component * 1000 + annual_savings / 100 + carbon_avoided * 2) * confidence_weight
+CONFIDENCE_WEIGHTS = {"high": 1.2, "medium": 1.0, "low": 0.8}
+
+
+def compute_efficiency_lookup(
+    options: List[RetrofitOptionCalculation],
+) -> Dict[str, Dict[str, float]]:
+    cost_efficiencies = [option.annual_savings / max(option.net_cost, 1) for option in options]
+    carbon_efficiencies = [option.carbon_avoided_tons / max(option.net_cost, 1) for option in options]
+
+    normalized_cost = _min_max_normalize(cost_efficiencies)
+    normalized_carbon = _min_max_normalize(carbon_efficiencies)
+
+    efficiency_lookup: Dict[str, Dict[str, float]] = {}
+    for option, norm_cost, norm_carbon in zip(options, normalized_cost, normalized_carbon):
+        confidence_weight = CONFIDENCE_WEIGHTS.get(option.confidence, 1.0)
+        score = (norm_cost + norm_carbon) / 2 * confidence_weight
+        if option.upgrade_key == "solar":
+            score += 2
+        efficiency_lookup[option.upgrade_key] = {
+            "cost_efficiency": norm_cost,
+            "carbon_efficiency": norm_carbon,
+            "score": score,
+        }
+
+    return efficiency_lookup
+
+
+def _apply_balanced_scores(
+    options: List[RetrofitOptionCalculation],
+) -> Tuple[List[RetrofitOptionCalculation], Dict[str, Dict[str, float]]]:
+    efficiency_lookup = compute_efficiency_lookup(options)
+    scored_options = [
+        _copy_model(option, {"score": round(efficiency_lookup[option.upgrade_key]["score"], 4)})
+        for option in options
+    ]
+    return scored_options, efficiency_lookup
+
+
+def _min_max_normalize(values: List[float]) -> List[float]:
+    if not values:
+        return []
+    low, high = min(values), max(values)
+    if high == low:
+        return [50.0 for _ in values]
+    return [(value - low) / (high - low) * 100 for value in values]
 
 
 def _assumptions(request: RetrofitCalculationRequest, missing_inputs: List[str]) -> AnalysisAssumptions:
@@ -433,11 +471,21 @@ def _llm_context(
             f"Top ranked option: {top_option.name} with {top_option.payback_years} year payback."
         )
 
+    starting_option = next(
+        (option for option in ranked_options if option.recommended_sequence == 1),
+        None,
+    )
+    if starting_option:
+        homeowner_summary_facts.append(
+            f"Recommended starting point: {starting_option.name} (step 1 of the install sequence)."
+        )
+
     ranked_option_facts = [
         (
             f"#{option.rank} {option.name}: gross ${option.gross_cost:,.0f}, "
             f"incentives ${option.incentive_total:,.0f}, net ${option.net_cost:,.0f}, "
-            f"saves ${option.annual_savings:,.0f}/yr, avoids {option.carbon_avoided_tons:.1f} tons CO2/yr."
+            f"saves ${option.annual_savings:,.0f}/yr, avoids {option.carbon_avoided_tons:.1f} tons CO2/yr. "
+            f"Recommended install order: step {option.recommended_sequence}."
         )
         for option in ranked_options
     ]
