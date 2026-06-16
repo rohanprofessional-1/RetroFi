@@ -135,9 +135,6 @@ function Dashboard() {
   const calculation = result.calculation;
   const optionByKey = Object.fromEntries(rankedOptions.map((o) => [o.upgrade_key, o]));
 
-  // Upper bound = the upfront cash to do everything at once. Budget feasibility is gated
-  // on gross cost minus point-of-sale rebates (tax credits arrive later), so gross is the
-  // safe ceiling. Rounded up to a clean $500 increment. Dynamic per address.
   const maxBudget = Math.max(
     0,
     Math.ceil(rankedOptions.reduce((sum, o) => sum + (o.gross_cost || 0), 0) / 500) * 500,
@@ -257,7 +254,7 @@ function BudgetPlanner({ budget, maxBudget, onChange, loading, focus, onFocusCha
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
         <span>$0</span>
-        <span>{currency.format(maxBudget)} · do it all at once</span>
+        <span>{currency.format(maxBudget)}</span>
       </div>
       {budget > 0 ? (
         <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
