@@ -1,0 +1,31 @@
+{
+  "indexed_at": "2026-06-16T03:03:05.193565+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/oh",
+  "collection_name": "retrofi_incentive_sources_oh",
+  "collection_count": 17,
+  "files": [
+    {
+      "path": "sources/oh/Home Energy Savings Program _ Development.html",
+      "sha256": "37a82d79de5e1de8da5374c17a6527b1c5c0abb7fc5d162bdf3ee7448f0f3d8a",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Home Energy Savings Program | Development",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/oh/Ohio-Clean-Energy-Factsheet.pdf",
+      "sha256": "983426058dbffd148397926a92738f8c9c2633e0d6c5bf510d5d5526d5f4ed83",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "Ohio-Clean-Energy-Factsheet",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 2,
+    "chunks_created": 17,
+    "records_indexed": 17
+  }
+}

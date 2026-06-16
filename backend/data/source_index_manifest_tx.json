@@ -1,0 +1,49 @@
+{
+  "indexed_at": "2026-06-16T03:03:08.615291+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/tx",
+  "collection_name": "retrofi_incentive_sources_tx",
+  "collection_count": 46,
+  "files": [
+    {
+      "path": "sources/tx/For Your Home.html",
+      "sha256": "c9edd3a40ed6ac507143b9630ad92a8fe4c2bf3fce1880b1ec1edaa146e34870",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "For Your Home",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/tx/Inflation Reduction Act Frequently Asked Questions.html",
+      "sha256": "1ab83f858686280bcd7771cbb192cecae3038618e23bb15989e0465ca978b496",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Inflation Reduction Act Frequently Asked Questions",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/tx/Inflation Reduction Act Rebates and Tax Credits.html",
+      "sha256": "6b1037f6007b7292731846b19d8706bb12f21834ee3150b518f127cdb5fc61b9",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Inflation Reduction Act Rebates and Tax Credits",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/tx/Weatherization Assistance Program.html",
+      "sha256": "53c201303d9646f67fe47b2be9b93fc9a6e197a2d7a6ec97e4bc2076abe41ff3",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Weatherization Assistance Program",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 4,
+    "chunks_created": 38,
+    "records_indexed": 46
+  }
+}

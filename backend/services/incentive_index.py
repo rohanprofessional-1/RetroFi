@@ -54,6 +54,21 @@ UPGRADE_ALIASES = {
     "electrical_panel": ["electric panel", "electrical panel", "panelboard"],
 }
 
+STATE_CODES = {"ca", "fl", "ga", "il", "nc", "ny", "oh", "pa", "tx"}
+
+ZIP_CODE_STATES = {
+    "30": "ga",
+    "90": "ca",
+    "91": "ca",
+    "92": "ca",
+    "93": "ca",
+    "94": "ca",
+    "95": "ca",
+    "32": "fl",
+    "33": "fl",
+    "34": "fl",
+}
+
 
 def _load_json(path: Path) -> List[Dict[str, Any]]:
     with path.open("r", encoding="utf-8") as file:
@@ -112,6 +127,7 @@ class IncentiveIndex:
         self.incentives = _load_json(incentives_path or DATA_DIR / "incentives_seed.json")
         self.costs = _load_json(costs_path or DATA_DIR / "install_costs_seed.json")
         self.vector_store = None
+        self.state_vector_stores = {}
         if use_vector:
             try:
                 from services.vector_store import ChromaVectorStore
@@ -119,6 +135,14 @@ class IncentiveIndex:
                 vector_store = ChromaVectorStore()
                 if vector_store.count() > 0:
                     self.vector_store = vector_store
+
+                for state_code in STATE_CODES:
+                    try:
+                        state_store = ChromaVectorStore(collection_name=f"retrofi_incentive_sources_{state_code}")
+                        if state_store.count() > 0:
+                            self.state_vector_stores[state_code] = state_store
+                    except Exception:
+                        pass
             except Exception as exc:
                 # region agent log
                 _debug_log(
@@ -130,6 +154,7 @@ class IncentiveIndex:
                 )
                 # endregion
                 self.vector_store = None
+                self.state_vector_stores = {}
 
     def infer_upgrade_categories(self, query: Any) -> List[str]:
         interests = _get_value(query, "upgrade_interests", []) or []
@@ -154,7 +179,7 @@ class IncentiveIndex:
         return list(dict.fromkeys(categories)) or [cost["upgrade_key"] for cost in self.costs]
 
     def search_incentives(self, query: Any, limit: int = 12) -> List[Dict[str, Any]]:
-        if self.vector_store:
+        if self.vector_store or self.state_vector_stores:
             matches = self._search_vector_incentives(query, limit)
             if matches:
                 return matches
@@ -262,16 +287,42 @@ class IncentiveIndex:
         )
         jurisdiction = _jurisdiction_for_query(query)
         utility = _get_value(query, "utility")
-        vector_matches = self.vector_store.query(
-            query_text=query_text,
-            limit=limit,
-            measures=categories,
-            jurisdiction=jurisdiction,
-            utility=utility,
-        )
+
+        vector_matches: List[Dict[str, Any]] = []
+
+        if self.vector_store:
+            vector_matches.extend(
+                self.vector_store.query(
+                    query_text=query_text,
+                    limit=limit,
+                    measures=categories,
+                    jurisdiction=jurisdiction,
+                    utility=utility,
+                )
+            )
+
+        state_code = _state_code_for_query(query)
+        if state_code and state_code in self.state_vector_stores:
+            state_matches = self.state_vector_stores[state_code].query(
+                query_text=query_text,
+                limit=limit,
+                measures=categories,
+                jurisdiction=None,
+                utility=utility,
+            )
+            vector_matches.extend(state_matches)
+
+        seen_ids = set()
+        unique_matches = []
+        for match in vector_matches:
+            match_id = match.get("id")
+            if match_id not in seen_ids:
+                seen_ids.add(match_id)
+                unique_matches.append(match)
+
         return [
             self._vector_match_to_incentive(match, query)
-            for match in vector_matches
+            for match in unique_matches[:limit]
         ]
 
     def _vector_match_to_incentive(self, match: Dict[str, Any], query: Any) -> Dict[str, Any]:
@@ -326,6 +377,22 @@ def _amount_rule_from_vector_match(match: Dict[str, Any]) -> Dict[str, Any]:
     if rebate_percent > 0:
         return {"type": "percentage_cap", "percent": rebate_percent, "cap": max_cap}
     return {"type": "source_defined", "amount": 0}
+
+
+def _state_code_for_query(query: Any) -> Optional[str]:
+    address = (_get_value(query, "address", "") or "").lower()
+    zip_code = (_get_value(query, "zip_code", "") or "").lower()
+
+    if zip_code:
+        prefix = zip_code[:2]
+        if prefix in ZIP_CODE_STATES:
+            return ZIP_CODE_STATES[prefix]
+
+    for state_code in STATE_CODES:
+        if f" {state_code}" in address or f"{state_code}," in address:
+            return state_code
+
+    return None
 
 
 def _jurisdiction_for_query(query: Any) -> str:

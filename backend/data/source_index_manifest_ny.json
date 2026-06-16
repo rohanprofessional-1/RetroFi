@@ -1,0 +1,67 @@
+{
+  "indexed_at": "2026-06-16T03:03:12.988331+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/ny",
+  "collection_name": "retrofi_incentive_sources_ny",
+  "collection_count": 417,
+  "files": [
+    {
+      "path": "sources/ny/IRA HER HEAR FAQ.pdf",
+      "sha256": "7779d67e647e563043964e131880836a2f24a5aab6703247caab91a1ed4d40ae",
+      "parser": "pdf",
+      "source_type": "state_rebate_pdf",
+      "title": "IRA HER HEAR FAQ",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ny/Inflation Reduction Act_ Homeowners _ NYSERDA.html",
+      "sha256": "cad1957e1c928a1dfcf09c9cbbb9bcefcffdb3ecbedd81c5bae1555db4bcddc0",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Inflation Reduction Act: Homeowners | NYSERDA",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ny/July 11 FAQs (1).pdf",
+      "sha256": "727ea6ecc66b4f41185b8dddafbf4ea1e7a36b954fa57eab7cea735dabcc404b",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "July 11 FAQs (1)",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ny/empower-plus-for-contractors.pdf",
+      "sha256": "364cfc4bc559bc72ba11373b6fe099a827b1bc7970a4bee34a3144fa5d1a968f",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "empower-plus-for-contractors",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ny/ny-sunsolar-guidebook.pdf",
+      "sha256": "4208dbbdb58de706b9307e68377ea19dc080e57a6f18daa522de28632462c122",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "ny-sunsolar-guidebook",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/ny/program-manual.pdf",
+      "sha256": "2cc53acab57f6986111d01a80b2f135f437e907ea4cbca0baaa59f7f47c66244",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "program-manual",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 6,
+    "chunks_created": 371,
+    "records_indexed": 417
+  }
+}

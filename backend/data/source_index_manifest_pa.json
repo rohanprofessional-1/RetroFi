@@ -1,0 +1,31 @@
+{
+  "indexed_at": "2026-06-16T03:03:04.608149+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/pa",
+  "collection_name": "retrofi_incentive_sources_pa",
+  "collection_count": 24,
+  "files": [
+    {
+      "path": "sources/pa/Inflation Reduction Act _ Department of Environmental Protection _ Commonwealth of Pennsylvania.html",
+      "sha256": "c8bde3a6aa88e93d711e484d5f59c86481226ccf3e188d34ca5895676a5ab277",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Inflation Reduction Act | Department of Environmental Protection | Commonwealth of Pennsylvania",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/pa/Weatherization Assistance Program (WAP) - PA Department of Community & Economic Development.html",
+      "sha256": "6682c294fbbd53d8b0e9b6a3c4bab56baa9a3efe23940a9dd71d558ebcccd817",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Weatherization Assistance Program (WAP) - PA Department of Community & Economic Development",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 2,
+    "chunks_created": 23,
+    "records_indexed": 24
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "indexed_at": "2026-06-16T03:03:08.540832+00:00",
+  "sources_dir": "/Users/anishbudida/Documents/Work/Hackathons/Play with Purpose/RetroFi/sources/nc",
+  "collection_name": "retrofi_incentive_sources_nc",
+  "collection_count": 168,
+  "files": [
+    {
+      "path": "sources/nc/HEAR-Consumer-Protection-Plan.pdf",
+      "sha256": "44a1773f7334adbd7642eb63acf9dcd64600fbb3b03a3769a788f8c5a1ee9618",
+      "parser": "pdf",
+      "source_type": "state_rebate_pdf",
+      "title": "HEAR-Consumer-Protection-Plan",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/nc/HOMES-Consumer-Protection-Plan.pdf",
+      "sha256": "d3401d76c380b92f0e1bc0df28e1c7e3dd1d6de3194ab87f214d29994148cf05",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "HOMES-Consumer-Protection-Plan",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/nc/Home Improvement Rebates - Duke Energy.html",
+      "sha256": "50b9541c6501c458623c86bbf483da02ffdfb9f36b0b5b4fa887d9900b0b3653",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "Home Improvement Rebates - Duke Energy Back Button Search Icon Filter Icon",
+      "document_date": null,
+      "warnings": []
+    },
+    {
+      "path": "sources/nc/NHH-941_Program_Requirements_ENG_FINAL_DIGI_260331.pdf",
+      "sha256": "25944aef547d0cfe6ec25f0334134a2d23ef8c13b26a1de848a272f601724e01",
+      "parser": "pdf",
+      "source_type": "source_document",
+      "title": "NHH-941 Program Requirements ENG FINAL DIGI 260331",
+      "document_date": "2603",
+      "warnings": []
+    },
+    {
+      "path": "sources/nc/North Carolina Energy Rebate FAQs - Energy Saver.html",
+      "sha256": "82b7ed5454608954deddcd15a69be3f08d0bc2d05e15b27b7b300649a31ac697",
+      "parser": "html",
+      "source_type": "source_document",
+      "title": "North Carolina Energy Rebate FAQs - Energy Saver",
+      "document_date": null,
+      "warnings": []
+    }
+  ],
+  "counts": {
+    "files_parsed": 5,
+    "chunks_created": 196,
+    "records_indexed": 168
+  }
+}
