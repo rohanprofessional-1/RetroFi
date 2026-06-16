@@ -162,7 +162,34 @@ function Dashboard() {
 
       {/* AI Summary */}
       <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--accent-primary)' }}>
-        <h3>Recommendation Overview</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h3 style={{ margin: 0 }}>Recommendation Overview</h3>
+          {result.summary_source === 'fallback' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              color: '#f87171',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              letterSpacing: '0.025em',
+            }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#f87171',
+                display: 'inline-block',
+                boxShadow: '0 0 8px #f87171',
+              }} />
+              <span>Fallback Engine (Local Model Offline)</span>
+            </div>
+          )}
+        </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', lineHeight: 1.7, marginTop: '1rem', whiteSpace: 'pre-wrap' }}>
           {result.llm_summary}
         </p>

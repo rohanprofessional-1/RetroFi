@@ -52,7 +52,12 @@ app = FastAPI(title="RetroFi ATL API", description="AI-powered retrofit planner 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=[
+        "http://127.0.0.1:5173", 
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        os.getenv("FRONTEND_URL", "")
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,6 +91,10 @@ def on_startup():
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the RetroFi ATL API"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 
 @app.get("/config/google-maps")
