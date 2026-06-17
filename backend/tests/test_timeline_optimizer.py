@@ -135,8 +135,9 @@ class TimelineOptimizerTests(unittest.TestCase):
             _shared_cap_doc("prog-hpwh", "heat_pump_water_heater"),
         ]
 
-        # Budget allows both in one year, but staggering captures the full cap twice.
-        request = _request(budget_per_year=5000, planning_horizon_years=5)
+        # Budget allows both in one year (the 25C credit is tax-filing, so upfront cost
+        # is the full $6,667 gross each), but staggering captures the full cap twice.
+        request = _request(budget_per_year=14000, planning_horizon_years=5)
         timeline = build_timeline(request, options, docs)
 
         hp_year = _detail(timeline, "heat_pump").scheduled_year
@@ -153,7 +154,8 @@ class TimelineOptimizerTests(unittest.TestCase):
             _option("heat_pump_water_heater", gross_cost=gross, net_cost=1500, annual_savings=5000),
             _option("panel_dummy", gross_cost=100000, net_cost=100000),
         ]
-        forced_request = _request(budget_per_year=5000, planning_horizon_years=1)
+        # Budget fits both upfront ($6,667 gross each = $13,334) but not the dummy.
+        forced_request = _request(budget_per_year=14000, planning_horizon_years=1)
         forced_timeline = build_timeline(forced_request, forced_options, docs)
 
         self.assertEqual(_detail(forced_timeline, "heat_pump").scheduled_year, 2026)
@@ -274,11 +276,61 @@ class TimelineOptimizerTests(unittest.TestCase):
             _shared_cap_doc("prog-hp", "heat_pump"),
             _shared_cap_doc("prog-hpwh", "heat_pump_water_heater"),
         ]
-        request = _request(budget_per_year=5000, planning_horizon_years=5)
+        # Tax-filing credit → upfront cost is the full $6,667 gross each; $14k fits both.
+        request = _request(budget_per_year=14000, planning_horizon_years=5)
         timeline = build_timeline(request, options, docs)
 
         self.assertIsNotNone(timeline.key_insight)
         self.assertIn("$", timeline.key_insight)
+
+    def test_lifetime_cap_depletes_across_years(self):
+        # One program with a $1,500 non-resetting lifetime cap covers two upgrades.
+        # Claiming it in two different years must total $1,500, not $1,500 each.
+        options = [
+            _option("duct_sealing", gross_cost=2000, net_cost=500, annual_savings=1000),
+            _option("smart_thermostat", gross_cost=2000, net_cost=500, annual_savings=1000),
+        ]
+        docs = [
+            _doc(
+                "wap-lifetime",
+                ["duct_sealing", "smart_thermostat"],
+                amount_rule={"type": "fixed", "amount": 1500},
+                resets_annually=False,
+                lifetime_cap=1500,
+                claim_timing="point_of_sale",
+                available_from_year=2020,
+                data_confidence="high",
+            )
+        ]
+        request = _request(budget_per_year=4000, planning_horizon_years=5)
+        timeline = build_timeline(request, options, docs)
+
+        total_incentive = sum(d.incentive_value for d in timeline.upgrade_details)
+        self.assertEqual(total_incentive, 1500.0)  # not 3000
+
+    def test_budget_uses_upfront_not_net_cost(self):
+        # A tax credit doesn't reduce install-time cash, so a $10k job with a big
+        # tax credit (net $2k) must still be gated on the $10k upfront outlay.
+        options = [_option("heat_pump", gross_cost=10000, net_cost=2000, annual_savings=1500, carbon_avoided_tons=2.0)]
+        docs = [
+            _doc(
+                "fed-25c",
+                ["heat_pump"],
+                amount_rule={"type": "percentage_cap", "percent": 0.3, "cap": 8000},
+                annual_cap=8000,
+                claim_timing="tax_filing",  # deferred — does NOT lower upfront cash
+                available_from_year=2020,
+                data_confidence="high",
+                tax_liability_required=False,
+            )
+        ]
+        # $5k budget would fit the $2k net cost, but not the $10k upfront cash.
+        request = _request(budget_per_year=5000, planning_horizon_years=5)
+        timeline = build_timeline(request, options, docs)
+
+        detail = _detail(timeline, "heat_pump")
+        self.assertIsNone(detail.scheduled_year)
+        self.assertEqual(detail.skipped_reason, "over_budget")
 
 
 if __name__ == "__main__":
